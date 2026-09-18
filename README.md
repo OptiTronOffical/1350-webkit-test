@@ -1,3 +1,5 @@
+VISTS jb.html page on console
+
 # WebKit Exploit — Console
 
 A single-shot PlayStation 4 WebKit exploit harness with a built-in on-screen console, real-time PASS/FAIL status reporting, and `.txt` log export. The exploit builds a fake host object to obtain an arbitrary read/write primitive, then optionally performs a kernel jailbreak.
