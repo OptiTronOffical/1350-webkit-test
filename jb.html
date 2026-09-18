@@ -351,6 +351,10 @@ function buildLogText() {
                        "  FAIL=" + LOG.counts.fail +
                        "  WARN=" + LOG.counts.warn +
                        "  INFO=" + LOG.counts.info);
+    L.push("Credits      :");
+    L.push("  mansoor0x       - base HTML script");
+    L.push("  primehat06-wq   - uploaded to GitHub / found repo");
+    L.push("  OptiTronOffical - vibe coding, testing, repo dorking");
     L.push("--------------------------------------------------");
     for (var i = 0; i < LOG.lines.length; i++) {
         var e = LOG.lines[i];
@@ -445,7 +449,7 @@ function clearLog() {
  * ============================================================ */
 
 // ========== HEADER MESSAGE ==========
-var headerMsg = "OptiTronOffical+Mansoor0x";
+var headerMsg = "mansoor0x + OptiTronOffical";
 var headerBorder = "=".repeat(50);
 var headerPrinted = false;
 
@@ -454,6 +458,10 @@ function printHeader() {
     headerPrinted = true;
     logLine(headerBorder, "info");
     logLine(" " + headerMsg, "info");
+    logLine(" Credits:", "info");
+    logLine("   mansoor0x       - base HTML script", "info");
+    logLine("   primehat06-wq   - uploaded to GitHub / found repo", "info");
+    logLine("   OptiTronOffical - vibe coding, testing, repo dorking", "info");
     logLine(headerBorder, "info");
 }
 
