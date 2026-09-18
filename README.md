@@ -185,7 +185,7 @@ The exported `.txt` contains a header block followed by every console entry:
 
 ```
 ==================================================
- WebKit Exploit Log — mansoor0x
+ WebKit Exploit Log — OptiTronOffical
 ==================================================
 Revision     : genuine-u8-rw-3-1352
 Firmware     : 9.00
