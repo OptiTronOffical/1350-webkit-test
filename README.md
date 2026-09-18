@@ -1,3 +1,6 @@
+credits to: mansoor0x - for the base html script that AI tweaked
+
+
 LIVE HOST: https://optitronoffical.github.io/1350-webkit-test/jb.html
 
 
