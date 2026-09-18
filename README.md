@@ -8,6 +8,8 @@ OptiTronOffical - Vibe coding the shit out of it and testing on console (and dai
 
 LIVE HOST: https://optitronoffical.github.io/1350-webkit-test/jb.html
 
+NOTE: This is not a full jb - its the userland portion that can be chained to a jb, this is why it halts at 4 passes
+
 
 # WebKit Exploit — Console
 
