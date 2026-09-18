@@ -1,5 +1,3 @@
-VISTS jb.html page on console
-
 # WebKit Exploit — Console
 
 A single-shot PlayStation 4 WebKit exploit harness with a built-in on-screen console, real-time PASS/FAIL status reporting, and `.txt` log export. The exploit builds a fake host object to obtain an arbitrary read/write primitive, then optionally performs a kernel jailbreak.
@@ -65,7 +63,7 @@ The two stages are:
 Load the page with no parameters:
 
 ```
-exploit.html
+jb.html
 ```
 
 The exploit runs, and on success you will see:
@@ -83,7 +81,7 @@ The status bar turns **amber** with `R/W PASS — HALTED`. No kernel memory is t
 Append `?jb=1`:
 
 ```
-exploit.html?jb=1
+jb.html?jb=1
 ```
 
 On success you will see:
@@ -102,7 +100,7 @@ The status bar turns **green** with `JAILBREAK COMPLETE — PASS`.
 Add `?dbg=1` alongside `?jb=1` to enable verbose kernel scan logging:
 
 ```
-exploit.html?jb=1&dbg=1
+jb.html?jb=1&dbg=1
 ```
 
 This adds `SCAN-HIT`, `UCRED-SIG-CANDIDATE`, and (on failure) a `PROC-DUMP` block.
@@ -121,11 +119,11 @@ This adds `SCAN-HIT`, `UCRED-SIG-CANDIDATE`, and (on failure) a `PROC-DUMP` bloc
 **Examples**
 
 ```
-exploit.html                                  # R/W only, halt after pass
-exploit.html?jb=1                             # full run
-exploit.html?jb=1&n=512                       # full run, larger groom
-exploit.html?jb=1&dbg=1                       # full run with debug dump
-exploit.html?n=1024                           # R/W only, max drain
+jb.html                                  # R/W only, halt after pass
+jb.html?jb=1                             # full run
+jb.html?jb=1&n=512                       # full run, larger groom
+jb.html?jb=1&dbg=1                       # full run with debug dump
+jb.html?n=1024                           # R/W only, max drain
 ```
 
 ---
@@ -318,7 +316,7 @@ PS4 Update (9.00)           → "9.00"
 
 ## License & Credits
 
-Exploit author tag: `OptiTronOffical`. 
+Exploit author tag: `OptiTronOffical`.
 Console UI, logging, and single-shot halt logic: as provided in this file.
 
 Use at your own risk. No warranty is provided, express or implied.
