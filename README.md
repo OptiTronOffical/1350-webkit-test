@@ -1,3 +1,6 @@
+LIVE HOST: https://optitronoffical.github.io/1350-webkit-test/jb.html
+
+
 # WebKit Exploit — Console
 
 A single-shot PlayStation 4 WebKit exploit harness with a built-in on-screen console, real-time PASS/FAIL status reporting, and `.txt` log export. The exploit builds a fake host object to obtain an arbitrary read/write primitive, then optionally performs a kernel jailbreak.
