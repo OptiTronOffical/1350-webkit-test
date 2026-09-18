@@ -1,21 +1,173 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-<meta charset="utf-8">
-<title>PS4 13.50 userland</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PS4 WebKit Userland Exploit — 13.50 Documentation</title>
 <style>
-body { background:#fff; color:#000; font:14px 'Courier New',monospace; margin:30px; max-width:720px; }
-a { color:#0066cc; }
-code { background:#f0f0f0; padding:2px 4px; }
+    :root { color-scheme: dark; }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        line-height: 1.6;
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+        background: #0d1117;
+        color: #c9d1d9;
+    }
+    h1, h2, h3 { color: #58a6ff; }
+    a { color: #58a6ff; }
+    code, .mono {
+        background: #161b22;
+        padding: 0.15em 0.4em;
+        border-radius: 4px;
+        font-family: 'Courier New', monospace;
+        font-size: 0.9em;
+    }
+    pre {
+        background: #161b22;
+        padding: 1rem;
+        border-radius: 8px;
+        overflow-x: auto;
+        font-size: 0.85em;
+    }
+    .warning {
+        background: #3d1e1e;
+        border-left: 4px solid #f85149;
+        padding: 1rem;
+        margin: 1.5rem 0;
+        border-radius: 4px;
+    }
+    .info {
+        background: #1c2a3a;
+        border-left: 4px solid #58a6ff;
+        padding: 1rem;
+        margin: 1.5rem 0;
+        border-radius: 4px;
+    }
+    .highlight { color: #f85149; font-weight: bold; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+    th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #30363d; vertical-align: top; }
+    th { color: #58a6ff; }
+    .banner {
+        font-family: 'Courier New', monospace;
+        background: #161b22;
+        padding: 0.8rem 1rem;
+        border-radius: 6px;
+        border: 1px solid #30363d;
+        display: inline-block;
+        color: #f0f6fc;
+    }
 </style>
 </head>
 <body>
-<h1>PS4 13.50 userland</h1>
-<p>WebKit structured-serialization (SSV) userland exploit for PlayStation&nbsp;4 firmware 13.50.</p>
+
+<h1>PS4 WebKit Userland Exploit</h1>
+<p>
+    A <strong>WebKit structured‑serialization (SSV) use‑after‑free userland exploit</strong>
+    for the PlayStation 4 Internet Browser. On success it yields arbitrary read/write
+    inside the browser process and runs a small <strong>kernel jailbreak</strong> stage.
+</p>
+
+<div class="banner">mansoor0x &nbsp;·&nbsp; rev genuine-u8-rw-3-1352</div>
+
+<div class="warning">
+    <strong>⚠️ Disclaimer:</strong> For <strong>educational and security‑research purposes only</strong>.
+    Not intended for piracy, cheating, or any illegal activity. Use at your own risk.
+</div>
+
+<h2>📌 Overview</h2>
 <ul>
-<li><a href="jb.html">jb.html</a> — run this on the PS4 browser to obtain the kernel read/write primitive (auto-retries up to 10 attempts per load).</li>
+    <li><strong>Target:</strong> PS4 firmware <strong>5.00 – 13.52</strong> (offset table included)</li>
+    <li><strong>Vulnerability:</strong> WebKit structured‑serialization UAF</li>
+    <li><strong>Primitive:</strong> Arbitrary read/write in the browser process</li>
+    <li><strong>Chain:</strong> SSV UAF → addrof → fake cell → RW → sysent hijack → ucred patch → rootvnode</li>
+    <li><strong>Entry point:</strong> <code>jb.html</code> loaded in the PS4 Internet Browser</li>
+    <li><strong>Retries:</strong> up to <strong>10 attempts per page load</strong></li>
 </ul>
-<p>Usage on the console (fresh boot recommended):<br>
-<code>https://primehat06-wq.github.io/ps4-13.50/jb.html</code></p>
+
+<h2>🚀 Usage</h2>
+<ol>
+    <li><strong>Cold boot</strong> the PS4 (fresh boot greatly improves reliability).</li>
+    <li>Open the <strong>Internet Browser</strong>.</li>
+    <li>Navigate to a hosted copy of <code>jb.html</code> — e.g.
+        <code>https://primehat06-wq.github.io/ps4-13.50/jb.html</code>.</li>
+    <li>Watch the on‑screen log (it prints into a <code>&lt;pre&gt;</code> element).</li>
+    <li>If all 10 attempts fail, power‑cycle the console and load it once more.</li>
+</ol>
+
+<div class="info">
+    <strong>Query parameters:</strong>
+    <code>?n=</code> drain count (64–1024),
+    <code>?dbg=1</code> verbose kernel scan output,
+    <code>?l=1</code> lite flag (reserved).
+    <br>Example: <code>jb.html?n=256&amp;dbg=1</code>
+</div>
+
+<h2>🧠 How it works</h2>
+<ol>
+    <li><strong>Firmware detection</strong> — parses <code>navigator.userAgent</code> and selects
+        the matching offsets from <code>PS4_OFFSETS</code>.</li>
+    <li><strong>SSV graph construction</strong> — <code>K = 2</code> BigInt fillers, <code>0xfffe − K</code>
+        filler objects, a duplicated reference at index <code>2</code>, and a control value at
+        index <code>0xffff</code>. Stored via <code>history.replaceState</code>.</li>
+    <li><strong>Addrof leak</strong> — a <code>Proxy</code> <code>get</code> trap on
+        <code>Leaker.prototype.__proto__</code> leaks a Symbol wrapper;
+        <code>Symbol.prototype.toString.call(...)</code> copies live heap pointers into a string.</li>
+    <li><strong>Heap grooming</strong> — <code>MessageChannel</code> posts typed arrays to punch
+        holes of known sizes, then a <code>0x80000</code> predecessor is filled with qword pairs
+        pointing at a fake cell at <code>host + 0x10</code>.</li>
+    <li><strong>Trigger</strong> — <code>history.state</code> returns the deserialized graph; the
+        duplicated reference yields two views over one <code>ArrayBuffer</code>. Rewriting one
+        backing vector gives arbitrary read/write.</li>
+    <li><strong>Verify</strong> — checks SID / butterfly / vector fields and performs an
+        <code>0xa5</code> read + <code>0x5a</code> write/restore cycle on both views.</li>
+    <li><strong>Jailbreak</strong> — hijacks <code>sysent[661]</code> with a <code>jmp rsi</code> gadget,
+        walks the <code>proc</code> structure for the <code>"rror"</code> marker to locate the
+        <code>ucred</code>, patches uid/gid/ref/prison, swaps
+        <code>fd_rdir</code>/<code>fd_jdir</code> to <code>rootvnode</code>, then restores
+        <code>sysent[661]</code>.</li>
+</ol>
+
+<h2>🖥️ Log tags</h2>
+<table>
+    <thead><tr><th>Tag</th><th>Meaning</th></tr></thead>
+    <tbody>
+        <tr><td><code>BOOT</code></td><td>Init with revision / K / drain count / attempt cap</td></tr>
+        <tr><td><code>SSV-BUILD</code> / <code>SSV-BUILT</code></td><td>Graph constructed</td></tr>
+        <tr><td><code>SSV-STORED</code></td><td>Graph stored via <code>history.replaceState</code></td></tr>
+        <tr><td><code>ADDROF-*</code></td><td>Addrof leak stage (RETURNED, COPY, POINTERS, FAIL)</td></tr>
+        <tr><td><code>PREDECESSOR-FILLED</code></td><td>Predecessor filled with fake‑cell pointers</td></tr>
+        <tr><td><code>SSV-RETURNED-CLEARED</code></td><td>Graph returned and cleaned</td></tr>
+        <tr><td><code>ARBITRARY-READ-PASS</code> / <code>ARBITRARY-WRITE-PASS</code></td><td>RW verified</td></tr>
+        <tr><td><span class="highlight">GENUINE-UB-RW-PASS</span></td><td>Overall RW success</td></tr>
+        <tr><td><code>SANDBOX-ESCAPE</code> / <code>VERIFY-UID</code></td><td>ucred patched</td></tr>
+        <tr><td><code>ROOT-VNODE-SET</code></td><td><code>fd_rdir</code> / <code>fd_jdir</code> swapped</td></tr>
+        <tr><td><code>SYSENT-HIJACKED</code> / <code>SYSENT-RESTORED</code></td><td>sysent[661] patched then restored</td></tr>
+        <tr><td><span class="highlight">===== JAILBREAK COMPLETE =====</span></td><td>Final success line</td></tr>
+        <tr><td><code>SSV-PLACEMENT-MISS</code> / <code>LOAD-THREW</code></td><td>Recoverable failure — auto‑retry</td></tr>
+        <tr><td><code>RETRY</code> / <code>GIVE-UP</code></td><td>Attempt counter / exhausted</td></tr>
+    </tbody>
+</table>
+
+<h2>📚 Further reading</h2>
+<ul>
+    <li><a href="https://www.synacktiv.com/sites/default/files/2021-05/eu-20-Meffre-This-Is-For-The-Pwners-Exploiting-A-Webkit-0day-In-Playstation4.pdf" target="_blank" rel="noopener">Synacktiv — “This Is For The Pwners”</a></li>
+    <li><a href="https://www.sstic.org/media/SSTIC2021/SSTIC-actes/vous_avez_obtenu_un_trophe__ps4_jailbreak/SSTIC2021-Article-vous_avez_obtenu_un_trophe__ps4_jailbreak-talbi_meffre.pdf" target="_blank" rel="noopener">SSTIC 2021 — PS4 jailbreak paper</a></li>
+    <li><a href="https://gbatemp.net/threads/ps4-exploit-guide.478694/" target="_blank" rel="noopener">GBAtemp — PS4 Exploit Guide</a></li>
+</ul>
+
+<h2>📜 Credits</h2>
+<ul>
+    <li><strong>Synacktiv</strong> — Mehdi Talbi &amp; Quentin Meffre (original WebKit PS4 research)</li>
+    <li><strong>Gezine</strong> — structured‑serialization discussion</li>
+    <li><code>mansoor0x</code> — header banner / payload author</li>
+    <li><code>primehat06-wq</code> — hosting mirror</li>
+    <li><strong>OptiTronOffical</strong> — repository maintenance</li>
+</ul>
+
+<h2>📄 License</h2>
+<p>Provided <strong>as‑is</strong> for educational purposes. No warranty, express or implied.</p>
+
 </body>
 </html>
