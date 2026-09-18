@@ -49,6 +49,7 @@
   #statusbar.running  { border-left-color: var(--accent); }
   #statusbar.pass     { border-left-color: var(--pass); background: #0e1a14; }
   #statusbar.fail     { border-left-color: var(--fail); background: #1a0e0e; }
+  #statusbar.halted   { border-left-color: var(--warn); background: #1a160a; }
 
   .status-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
   .dot {
@@ -59,6 +60,7 @@
   #statusbar.running .dot { background: var(--accent); animation: pulse 1.1s infinite; }
   #statusbar.pass    .dot { background: var(--pass); box-shadow: 0 0 10px var(--pass); }
   #statusbar.fail    .dot { background: var(--fail); box-shadow: 0 0 10px var(--fail); }
+  #statusbar.halted  .dot { background: var(--warn); box-shadow: 0 0 10px var(--warn); }
   @keyframes pulse {
     0%   { box-shadow: 0 0 0 0 rgba(74,163,255,.7); }
     70%  { box-shadow: 0 0 0 8px rgba(74,163,255,0); }
@@ -71,6 +73,7 @@
   #statusbar.pass #statusText { color: var(--pass); }
   #statusbar.fail #statusText { color: var(--fail); }
   #statusbar.running #statusText { color: var(--accent); }
+  #statusbar.halted #statusText { color: var(--warn); }
   #statusSub { color: var(--dim); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
   .status-right { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -241,7 +244,8 @@ function classify(tag, extra) {
     if (t.indexOf("SUCCESS")  !== -1) return "pass";
     if (t.indexOf("RETAINED") !== -1) return "pass";
 
-    /* warnings */
+    /* warnings / halts */
+    if (t.indexOf("HALTED")   !== -1) return "warn";
     if (t.indexOf("MISS")     !== -1) return "warn";
     if (t.indexOf("RETRY")    !== -1) return "warn";
     if (t.indexOf("NO-RESULT")!== -1) return "warn";
@@ -312,6 +316,9 @@ function updateStatusFromMark(tag, extra) {
         setStatus("running", "RUNNING", e);
     } else if (t.indexOf("PS4 JAILBREAK START") !== -1) {
         setStatus("running", "JAILBREAKING…", e);
+    } else if (t.indexOf("HALTED-BEFORE-JAILBREAK") !== -1) {
+        setStatus("halted", "R/W PASS — HALTED", "jailbreak disabled (add ?jb=1 to continue)");
+        maybeAutoSave();
     } else if (t.indexOf("GENUINE-UB-RW-PASS") !== -1) {
         setStatus("pass", "ARBITRARY R/W — PASS", e);
     } else if (t.indexOf("JAILBREAK COMPLETE") !== -1) {
@@ -338,6 +345,7 @@ function buildLogText() {
     L.push("User Agent   : " + navigator.userAgent);
     L.push("Started      : " + new Date(LOG.startTime).toISOString());
     L.push("Ended        : " + new Date().toISOString());
+    L.push("Jailbreak    : " + (typeof RUN_JAILBREAK !== "undefined" ? (RUN_JAILBREAK ? "ENABLED (?jb=1)" : "DISABLED (halt before runJailbreak)") : "?"));
     L.push("Final Status : " + LOG.statusText + "  [" + LOG.status.toUpperCase() + "]");
     L.push("Counts       : PASS=" + LOG.counts.pass +
                        "  FAIL=" + LOG.counts.fail +
@@ -487,6 +495,14 @@ var Q = new URLSearchParams(location.search);
 var requestedDrain = parseInt(Q.get("n") || "128", 10);
 var DRAIN_COUNT = isFinite(requestedDrain) ? Math.max(64, Math.min(1024, requestedDrain)) : 512;
 var LITE = Q.get("l") === "1";
+
+/* ------------------------------------------------------------------
+ *  JAILBREAK GATE
+ *  By default we STOP as soon as the R/W primitive passes.
+ *  Add ?jb=1 to the URL to actually run the kernel jailbreak.
+ *  This prevents the crash/reload loop caused by runJailbreak().
+ * ------------------------------------------------------------------ */
+var RUN_JAILBREAK = Q.get("jb") === "1";
 
 var REVISION = "genuine-u8-rw-3-1352";
 var K = 2;
@@ -638,7 +654,7 @@ function prepareSymbolWrapper(F) {
     return Object(leakedScope.g);
 }
 
-/* Single terminal failure reporter — replaces the old retry engine. */
+/* Single terminal failure reporter */
 function failTerminal(reason, detail) {
     attemptSucceeded = false;
     mark("FAILED-TERMINAL", "reason=" + reason + (detail ? "-" + detail : ""));
@@ -953,9 +969,22 @@ function reportComposition() {
         attemptSucceeded = true;
         mark("GENUINE-UB-RW-PASS", "carrier-vector-restored=true");
         try { sessionStorage.setItem(REVISION + ":passed", "1"); } catch (_) {}
+
+        /* ------------------------------------------------------
+         *  HALT POINT — we never call runJailbreak() unless the
+         *  user explicitly opted in with ?jb=1 in the URL.
+         * ------------------------------------------------------ */
         if (!testRun) {
             testRun = true;
-            setTimeout(runJailbreak, 500);
+            if (RUN_JAILBREAK) {
+                mark("JAILBREAK-GATE", "explicitly-enabled-by-url-param");
+                setTimeout(runJailbreak, 500);
+            } else {
+                mark("HALTED-BEFORE-JAILBREAK", "rw-primitive-ready-no-kernel-writes-performed");
+                mark("HALT-NOTE", "append-?jb=1-to-url-to-run-kernel-jailbreak");
+                setStatus("halted", "R/W PASS — HALTED", "kernel jailbreak skipped (add ?jb=1 to run)");
+                maybeAutoSave();
+            }
         }
     } else {
         failTerminal("rw-verify-miss", "read=" + readPass + "-write=" + writePass);
@@ -1089,7 +1118,7 @@ function write64(addr, value) {
     for (var i = 0; i < 8; i++) globalFakeArray[0x10 + i] = oldVec[i];
 }
 
-// ========== PS4 JAILBREAK ==========
+// ========== PS4 JAILBREAK (only reached when ?jb=1) ==========
 function runJailbreak() {
     mark("===== PS4 JAILBREAK START =====", "fw=" + FW_LABEL);
 
@@ -1227,7 +1256,7 @@ function runJailbreak() {
 var attemptSucceeded = false;
 
 function runAttempt() {
-    mark("BOOT", "rev=" + REVISION + "-k=" + K + "-n=" + DRAIN_COUNT);
+    mark("BOOT", "rev=" + REVISION + "-k=" + K + "-n=" + DRAIN_COUNT + "-jb=" + (RUN_JAILBREAK ? "on" : "off"));
     try {
         buildAndStoreGraph();
         prepareAddrof();
@@ -1239,7 +1268,8 @@ function runAttempt() {
 
 // ========== INIT ==========
 try {
-    document.getElementById("toolbarMeta").textContent = "rev " + REVISION + " · fw " + (FW_LABEL || "?");
+    document.getElementById("toolbarMeta").textContent =
+        "rev " + REVISION + " · fw " + (FW_LABEL || "?") + " · jb " + (RUN_JAILBREAK ? "ON" : "OFF");
 } catch (_) {}
 
 runAttempt();
