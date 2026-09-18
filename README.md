@@ -1,5 +1,7 @@
-credits to: mansoor0x - for the base html script that AI tweaked
-
+credits to: 
+mansoor0x - for the base html script that AI tweaked
+primehat06-wq - for uploading to GitHub
+OptiTronOffical - Vibe coding the shit out of it and testing on console
 
 LIVE HOST: https://optitronoffical.github.io/1350-webkit-test/jb.html
 
