@@ -2,31 +2,445 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>WebKit Exploit</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WebKit Exploit — Console</title>
 <style>
-body {
-    background: #ffffff;
-    color: #000000;
-    font: 13px 'Courier New', monospace;
-    margin: 20px;
-    padding: 0;
-}
-#out {
+  :root {
+    --bg:        #0b0e13;
+    --panel:     #12161f;
+    --panel2:    #0f131a;
+    --border:    #232a38;
+    --text:      #c9d4e3;
+    --dim:       #6b7a90;
+    --pass:      #3ddc84;
+    --fail:      #ff5c5c;
+    --warn:      #ffb020;
+    --info:      #8fa6c4;
+    --accent:    #4aa3ff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font: 13px/1.45 'Courier New', ui-monospace, monospace;
+    padding: 10px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow: hidden;
+  }
+
+  /* ---------- STATUS BAR ---------- */
+  #statusbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-left: 6px solid var(--dim);
+    border-radius: 6px;
+    background: var(--panel);
+  }
+  #statusbar.pending  { border-left-color: var(--dim); }
+  #statusbar.running  { border-left-color: var(--accent); }
+  #statusbar.pass     { border-left-color: var(--pass); background: #0e1a14; }
+  #statusbar.fail     { border-left-color: var(--fail); background: #1a0e0e; }
+
+  .status-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .dot {
+    width: 12px; height: 12px; border-radius: 50%;
+    background: var(--dim); flex: 0 0 auto;
+    box-shadow: 0 0 0 0 rgba(0,0,0,0);
+  }
+  #statusbar.running .dot { background: var(--accent); animation: pulse 1.1s infinite; }
+  #statusbar.pass    .dot { background: var(--pass); box-shadow: 0 0 10px var(--pass); }
+  #statusbar.fail    .dot { background: var(--fail); box-shadow: 0 0 10px var(--fail); }
+  @keyframes pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(74,163,255,.7); }
+    70%  { box-shadow: 0 0 0 8px rgba(74,163,255,0); }
+    100% { box-shadow: 0 0 0 0 rgba(74,163,255,0); }
+  }
+  #statusText {
+    font-size: 15px; font-weight: bold; letter-spacing: .5px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #statusbar.pass #statusText { color: var(--pass); }
+  #statusbar.fail #statusText { color: var(--fail); }
+  #statusbar.running #statusText { color: var(--accent); }
+  #statusSub { color: var(--dim); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .status-right { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip {
+    padding: 3px 8px; border-radius: 10px; font-size: 11px; font-weight: bold;
+    border: 1px solid var(--border); background: var(--panel2); color: var(--dim);
+  }
+  .chip.pass { color: var(--pass); border-color: #1f4a35; }
+  .chip.fail { color: var(--fail); border-color: #4a1f1f; }
+  .chip.warn { color: var(--warn); border-color: #4a3a1f; }
+
+  /* ---------- TOOLBAR ---------- */
+  #toolbar {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--panel2);
+  }
+  button {
+    font: inherit; font-size: 12px;
+    padding: 5px 10px;
+    color: var(--text);
+    background: #1b2230;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  button:hover { background: #253044; border-color: #35425c; }
+  button:active { transform: translateY(1px); }
+  button.primary { border-color: #1f4a7a; color: var(--accent); }
+  #toolbar label { color: var(--dim); font-size: 11px; display: flex; align-items: center; gap: 4px; cursor: pointer; }
+  #toolbar .spacer { flex: 1 1 auto; }
+  #toolbar .meta { color: var(--dim); font-size: 11px; }
+
+  /* ---------- CONSOLE ---------- */
+  #consoleWrap {
+    flex: 1 1 auto;
+    min-height: 0;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: #05070a;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  #consoleHead {
+    padding: 5px 10px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    color: var(--dim);
+    font-size: 11px;
+    letter-spacing: 1px;
+    display: flex; justify-content: space-between; gap: 8px;
+  }
+  #out {
+    flex: 1 1 auto;
+    overflow: auto;
+    padding: 6px 0;
+    font-size: 12px;
+    line-height: 1.4;
+    -webkit-overflow-scrolling: touch;
+  }
+  .logline {
+    display: flex;
+    gap: 8px;
+    padding: 1px 10px;
+    border-left: 3px solid transparent;
     white-space: pre-wrap;
-    word-wrap: break-word;
-    max-width: 900px;
-}
-.highlight {
-    color: #cc0000;
-    font-weight: bold;
-}
+    word-break: break-word;
+  }
+  .logline .time { color: #3f4c60; flex: 0 0 auto; }
+  .logline .msg  { flex: 1 1 auto; }
+  .logline.info  { color: var(--info);  border-left-color: #1c2433; }
+  .logline.pass  { color: var(--pass);  border-left-color: var(--pass); font-weight: bold; background: #0a1710; }
+  .logline.fail  { color: var(--fail);  border-left-color: var(--fail); font-weight: bold; background: #170a0a; }
+  .logline.warn  { color: var(--warn);  border-left-color: var(--warn); background: #17120a; }
+  .logline.debug { color: #5a6a80; border-left-color: #1c2433; }
+
+  #out::-webkit-scrollbar { width: 10px; height: 10px; }
+  #out::-webkit-scrollbar-track { background: #0a0d12; }
+  #out::-webkit-scrollbar-thumb { background: #263043; border-radius: 5px; }
+
+  @media (max-width: 640px) {
+    .logline { font-size: 11px; }
+    #statusText { font-size: 13px; }
+  }
 </style>
 </head>
 <body>
-<pre id="out"></pre>
+
+<!-- ================= STATUS BAR ================= -->
+<div id="statusbar" class="pending">
+  <div class="status-left">
+    <span class="dot"></span>
+    <div style="min-width:0">
+      <div id="statusText">INITIALIZING…</div>
+      <div id="statusSub">waiting for boot</div>
+    </div>
+  </div>
+  <div class="status-right">
+    <span class="chip pass" id="chipPass">PASS 0</span>
+    <span class="chip fail" id="chipFail">FAIL 0</span>
+    <span class="chip warn" id="chipWarn">WARN 0</span>
+  </div>
+</div>
+
+<!-- ================= TOOLBAR ================= -->
+<div id="toolbar">
+  <button id="btnDownload" class="primary">⬇ Download log (.txt)</button>
+  <button id="btnCopy">Copy log</button>
+  <button id="btnClear">Clear</button>
+  <label><input type="checkbox" id="chkAutoScroll" checked> auto-scroll</label>
+  <label><input type="checkbox" id="chkAutoSave"> auto-save .txt on finish</label>
+  <span class="spacer"></span>
+  <span class="meta" id="toolbarMeta">rev —</span>
+</div>
+
+<!-- ================= CONSOLE ================= -->
+<div id="consoleWrap">
+  <div id="consoleHead">
+    <span>CONSOLE OUTPUT</span>
+    <span id="consoleCount">0 lines</span>
+  </div>
+  <div id="out"></div>
+</div>
 
 <script>
 "use strict";
+
+/* ============================================================
+ *  CONSOLE / LOGGER LAYER
+ * ============================================================ */
+var LOG = {
+    lines: [],
+    counts: { pass: 0, fail: 0, warn: 0, info: 0 },
+    startTime: Date.now(),
+    maxLines: 8000,
+    autoScroll: true,
+    autoSave: false,
+    status: "pending",
+    statusText: "INITIALIZING…",
+    statusSub: "waiting for boot"
+};
+
+function pad(n, w) { n = String(n); while (n.length < (w || 2)) n = "0" + n; return n; }
+
+function fmtTime(ms) {
+    var d = new Date(ms);
+    return pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds()) + "." + pad(d.getMilliseconds(), 3);
+}
+
+/* Classify a log entry into pass / fail / warn / info */
+function classify(tag, extra) {
+    var t = (String(tag) + " " + (extra === undefined ? "" : String(extra))).toUpperCase();
+
+    /* negative first — overrides everything */
+    if (t.indexOf("FAILED")   !== -1) return "fail";
+    if (t.indexOf("GIVE-UP")  !== -1) return "fail";
+    if (t.indexOf("FAIL")     !== -1) return "fail";
+    if (t.indexOf("MISMATCH") !== -1) return "fail";
+    if (t.indexOf("THREW")    !== -1) return "fail";
+    if (t.indexOf("ERROR")    !== -1) return "fail";
+
+    /* positive */
+    if (t.indexOf("PASS")     !== -1) return "pass";
+    if (t.indexOf("COMPLETE") !== -1) return "pass";
+    if (t.indexOf("SUCCESS")  !== -1) return "pass";
+    if (t.indexOf("RETAINED") !== -1) return "pass";
+
+    /* warnings */
+    if (t.indexOf("MISS")     !== -1) return "warn";
+    if (t.indexOf("RETRY")    !== -1) return "warn";
+    if (t.indexOf("NO-RESULT")!== -1) return "warn";
+
+    return "info";
+}
+
+function renderLine(entry) {
+    try {
+        var el = document.getElementById("out");
+        if (!el) return;
+        var div = document.createElement("div");
+        div.className = "logline " + entry.level;
+
+        var t = document.createElement("span");
+        t.className = "time";
+        t.textContent = fmtTime(entry.t);
+
+        var m = document.createElement("span");
+        m.className = "msg";
+        m.textContent = entry.text;
+
+        div.appendChild(t);
+        div.appendChild(m);
+        el.appendChild(div);
+
+        if (LOG.autoScroll) el.scrollTop = el.scrollHeight;
+    } catch (_) {}
+}
+
+function updateChips() {
+    try {
+        document.getElementById("chipPass").textContent = "PASS " + LOG.counts.pass;
+        document.getElementById("chipFail").textContent = "FAIL " + LOG.counts.fail;
+        document.getElementById("chipWarn").textContent = "WARN " + LOG.counts.warn;
+        document.getElementById("consoleCount").textContent = LOG.lines.length + " lines";
+    } catch (_) {}
+}
+
+function logLine(text, level) {
+    level = level || "info";
+    var entry = { t: Date.now(), text: text, level: level };
+    LOG.lines.push(entry);
+    LOG.counts[level] = (LOG.counts[level] || 0) + 1;
+    if (LOG.lines.length > LOG.maxLines) LOG.lines.shift();
+    renderLine(entry);
+    updateChips();
+}
+
+function setStatus(state, text, sub) {
+    LOG.status = state;
+    LOG.statusText = text;
+    LOG.statusSub = sub || "";
+    try {
+        var bar = document.getElementById("statusbar");
+        bar.className = state;
+        document.getElementById("statusText").textContent = text;
+        document.getElementById("statusSub").textContent = sub || "";
+    } catch (_) {}
+}
+
+/* Map exploit tags → status bar updates */
+function updateStatusFromMark(tag, extra) {
+    var t = String(tag).toUpperCase();
+    var e = extra === undefined ? "" : String(extra);
+
+    if (t === "BOOT") {
+        setStatus("running", "RUNNING", e);
+    } else if (t.indexOf("ATTEMPT") === 0) {
+        setStatus("running", "RUNNING — ATTEMPT " + e.split("-")[0], e);
+    } else if (t.indexOf("RETRY") === 0) {
+        setStatus("running", "RETRYING…", e);
+    } else if (t.indexOf("PS4 JAILBREAK START") !== -1) {
+        setStatus("running", "JAILBREAKING…", e);
+    } else if (t.indexOf("GENUINE-UB-RW-PASS") !== -1) {
+        setStatus("pass", "ARBITRARY R/W — PASS", e);
+    } else if (t.indexOf("JAILBREAK COMPLETE") !== -1) {
+        setStatus("pass", "JAILBREAK COMPLETE — PASS", e);
+        maybeAutoSave();
+    } else if (t.indexOf("GIVE-UP") === 0) {
+        setStatus("fail", "GIVE UP — FAIL", e);
+        maybeAutoSave();
+    } else if (t.indexOf("JAILBREAK-ERROR") === 0) {
+        setStatus("fail", "JAILBREAK ERROR — FAIL", e);
+        maybeAutoSave();
+    }
+}
+
+/* ---------- LOG FILE EXPORT ---------- */
+function buildLogText() {
+    var L = [];
+    var line = "==================================================";
+    L.push(line);
+    L.push(" WebKit Exploit Log — " + headerMsg);
+    L.push(line);
+    L.push("Revision     : " + (typeof REVISION !== "undefined" ? REVISION : "?"));
+    L.push("Firmware     : " + (typeof FW_LABEL !== "undefined" && FW_LABEL ? FW_LABEL : "(undetected)"));
+    L.push("User Agent   : " + navigator.userAgent);
+    L.push("Started      : " + new Date(LOG.startTime).toISOString());
+    L.push("Ended        : " + new Date().toISOString());
+    L.push("Attempts     : " + (typeof attemptNumber !== "undefined" ? attemptNumber : "?") +
+                            " / " + (typeof MAX_ATTEMPTS !== "undefined" ? MAX_ATTEMPTS : "?"));
+    L.push("Final Status : " + LOG.statusText + "  [" + LOG.status.toUpperCase() + "]");
+    L.push("Counts       : PASS=" + LOG.counts.pass +
+                       "  FAIL=" + LOG.counts.fail +
+                       "  WARN=" + LOG.counts.warn +
+                       "  INFO=" + LOG.counts.info);
+    L.push("--------------------------------------------------");
+    for (var i = 0; i < LOG.lines.length; i++) {
+        var e = LOG.lines[i];
+        L.push("[" + fmtTime(e.t) + "] [" + pad(e.level.toUpperCase(), 4) + "] " + e.text);
+    }
+    L.push("--------------------------------------------------");
+    L.push("END OF LOG (" + LOG.lines.length + " entries)");
+    return L.join("\r\n");
+}
+
+function downloadLog() {
+    try {
+        var text = buildLogText();
+        var blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement("a");
+        var stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+        a.href = url;
+        a.download = "ps4-exploit-log-" + stamp + ".txt";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(function () { try { URL.revokeObjectURL(url); } catch (_) {} }, 10000);
+        logLine("LOG-SAVED file=ps4-exploit-log-" + stamp + ".txt bytes=" + text.length, "info");
+    } catch (err) {
+        logLine("LOG-SAVE-FAILED " + err, "warn");
+    }
+}
+
+var autoSaveDone = false;
+function maybeAutoSave() {
+    if (autoSaveDone) return;
+    if (!LOG.autoSave) return;
+    autoSaveDone = true;
+    setTimeout(downloadLog, 400);
+}
+
+function copyLog() {
+    var text = buildLogText();
+    try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(
+                function () { logLine("LOG-COPIED chars=" + text.length, "info"); },
+                function () { fallbackCopy(text); }
+            );
+        } else {
+            fallbackCopy(text);
+        }
+    } catch (_) { fallbackCopy(text); }
+}
+
+function fallbackCopy(text) {
+    try {
+        var ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+        logLine("LOG-COPIED (fallback) chars=" + text.length, "info");
+    } catch (err) {
+        logLine("LOG-COPY-FAILED " + err, "warn");
+    }
+}
+
+function clearLog() {
+    LOG.lines = [];
+    LOG.counts = { pass: 0, fail: 0, warn: 0, info: 0 };
+    try { document.getElementById("out").innerHTML = ""; } catch (_) {}
+    updateChips();
+}
+
+/* wire up UI (runs immediately — DOM is already parsed) */
+(function initUI() {
+    try {
+        document.getElementById("btnDownload").addEventListener("click", downloadLog);
+        document.getElementById("btnCopy").addEventListener("click", copyLog);
+        document.getElementById("btnClear").addEventListener("click", clearLog);
+        document.getElementById("chkAutoScroll").addEventListener("change", function (ev) {
+            LOG.autoScroll = !!ev.target.checked;
+        });
+        document.getElementById("chkAutoSave").addEventListener("change", function (ev) {
+            LOG.autoSave = !!ev.target.checked;
+        });
+    } catch (_) {}
+})();
+
+/* ============================================================
+ *  EXPLOIT (original logic, presentation rewired)
+ * ============================================================ */
 
 // ========== HEADER MESSAGE ==========
 var headerMsg = "mansoor0x";
@@ -36,12 +450,9 @@ var headerPrinted = false;
 function printHeader() {
     if (headerPrinted) return;
     headerPrinted = true;
-    try {
-        var el = document.getElementById("out");
-        el.textContent += headerBorder + "\n";
-        el.textContent += " " + headerMsg + "\n";
-        el.textContent += headerBorder + "\n";
-    } catch (_) {}
+    logLine(headerBorder, "info");
+    logLine(" " + headerMsg, "info");
+    logLine(headerBorder, "info");
 }
 
 // ========== PS4 OFFSETS ==========
@@ -182,17 +593,9 @@ function mark(tag, extra) {
     if (!headerPrinted) printHeader();
     seq++;
     var line = seq + "-rw-" + tag + (extra !== undefined ? "-" + extra : "");
-    try {
-        var el = document.getElementById("out");
-        if (tag === "GENUINE-UB-RW-PASS" || tag === "===== JAILBREAK COMPLETE =====") {
-            var span = document.createElement("span");
-            span.className = "highlight";
-            span.textContent = line + "\n";
-            el.appendChild(span);
-        } else {
-            el.textContent += line + "\n";
-        }
-    } catch (_) {}
+    var level = classify(tag, extra);
+    logLine(line, level);
+    try { updateStatusFromMark(tag, extra); } catch (_) {}
 }
 
 function hex(value) {
@@ -877,6 +1280,10 @@ function runAttempt() {
 }
 
 // ========== INIT ==========
+try {
+    document.getElementById("toolbarMeta").textContent = "rev " + REVISION + " · fw " + (FW_LABEL || "?");
+} catch (_) {}
+
 mark("BOOT", "rev=" + REVISION + "-k=" + K + "-n=" + DRAIN_COUNT + "-attempts=" + MAX_ATTEMPTS);
 runAttempt();
 </script>
