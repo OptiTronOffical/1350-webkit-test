@@ -329,7 +329,7 @@ PS4 Update (9.00)           → "9.00"
 
 ## License & Credits
 
-Exploit author tag: `OptiTronOffical`.
+Exploit author tag: `mansoor0x + OptiTronOffical`.
 Console UI, logging, and single-shot halt logic: as provided in this file.
 
 Use at your own risk. No warranty is provided, express or implied.
