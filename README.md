@@ -18,7 +18,7 @@ A single-shot PlayStation 4 WebKit exploit harness with a built-in on-screen con
 **Author tag:** `OptiTronOffical`
 **Revision:** `genuine-u8-rw-3-1352`
 
-> ⚠️ **For research and educational use only.** Only run this on hardware you personally own. Kernel-level memory corruption can brick your console or cause data loss.
+> ⚠️ **For research and educational use only.**  NOTE KERNEL DOES NOT TRY TO FIRE - NO CORUPPTION WILL OCCUR ! Only run this on hardware you personally own. Kernel-level memory corruption can brick your console or cause data loss.
 
 ---
 
