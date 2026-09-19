@@ -6,7 +6,7 @@ primehat06-wq - for uploading that script to GitHub (for finding it and creating
 
 OptiTronOffical - Vibe coding the shit out of it and testing on console (and daily dorking/snooping repos to find it)
 
-LIVE HOST: https://optitronoffical.github.io/1350-webkit-test/jb.html
+LIVE HOST: https://1350-webkit-test.vercel.app/jb.html
 
 NOTE: This is not a full jb - its the userland portion that can be chained to a jb, this is why it halts at 4 passes
 
